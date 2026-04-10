@@ -4,7 +4,7 @@ public interface IMatch {
     ITeam getHomeTeam();
     ITeam getAwayTeam();
     void play();
-    ITeam getWinner(); // Beraberlikte null döner
+    ITeam getWinner();
     String getScore();
     boolean isPlayed();
 }

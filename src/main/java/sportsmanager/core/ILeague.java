@@ -6,5 +6,5 @@ public interface ILeague {
     void addTeam(ITeam team);
     void scheduleMatches();
     void playNextRound();
-    List<ITeam> getStandings(); // Puan durumuna göre sıralı dönmeli
+    List<ITeam> getStandings();
 }

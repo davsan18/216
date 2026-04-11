@@ -13,13 +13,13 @@ public class Main {
         ISportFactory factory = new FootballFactory();
         ILeague superLig = factory.createLeague("Super Lig");
 
-        ITeam teamA = factory.createTeam("Galatasaray");
-        teamA.addPlayer(factory.createPlayer("Icardi", "Forward", 90));
-        teamA.addPlayer(factory.createPlayer("Muslera", "Goalkeeper", 85));
+        ITeam teamA = factory.createTeam("Beşiktaş");
+        teamA.addPlayer(factory.createPlayer("Gomez", "Forward", 95));
+        teamA.addPlayer(factory.createPlayer("Fabri", "Goalkeeper", 90));
 
         ITeam teamB = factory.createTeam("Fenerbahce");
-        teamB.addPlayer(factory.createPlayer("Dzeko", "Forward", 88));
-        teamB.addPlayer(factory.createPlayer("Livakovic", "Goalkeeper", 86));
+        teamB.addPlayer(factory.createPlayer("Dzeko", "Forward", 93));
+        teamB.addPlayer(factory.createPlayer("Demirel", "Goalkeeper", 89));
 
         superLig.addTeam(teamA);
         superLig.addTeam(teamB);
@@ -30,9 +30,8 @@ public class Main {
 
         System.out.println("\n[!] Scheduling matches and playing the first round...");
         superLig.scheduleMatches();
-        superLig.playNextRound(); 
+        superLig.playNextRound();
 
-        // Sonuçları Yazdır
         System.out.println("\n=========================================");
         System.out.println("           CURRENT STANDINGS             ");
         System.out.println("=========================================");

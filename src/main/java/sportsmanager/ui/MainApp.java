@@ -10,39 +10,40 @@ import javafx.scene.control.ListView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import sportsmanager.core.ILeague;
-import sportsmanager.core.ISportFactory;
-import sportsmanager.core.ITeam;
+import sportsmanager.core.*;
 import sportsmanager.football.FootballFactory;
 import sportsmanager.volleyball.VolleyballFactory;
 
 public class MainApp extends Application {
 
+    private ILeague currentLeague;
+    private ListView<String> standingsView;
+
     @Override
     public void start(Stage primaryStage) {
-        // --- 1. ANA MENÜ EKRANI (Seçim Ekranı) ---
-        Label title = new Label("Sports Manager'a Hoş Geldiniz");
-        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        // --- 1. ANA MENÜ EKRANI (Modern Tasarım) ---
+        Label title = new Label("SPORTS MANAGER");
+        title.setStyle("-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 10, 0, 2, 2);");
 
-        Label subtitle = new Label("Lütfen yönetmek istediğiniz sporu seçin:");
-        subtitle.setStyle("-fx-font-size: 16px; -fx-text-fill: #7f8c8d;");
+        Label subtitle = new Label("Lütfen yönetmek istediğiniz sporu seçin");
+        subtitle.setStyle("-fx-font-size: 18px; -fx-text-fill: #ecf0f1; -fx-padding: 0 0 30 0;");
 
-        Button btnFootball = new Button("⚽ Futbol");
-        btnFootball.setStyle("-fx-font-size: 18px; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-pref-width: 150px; -fx-pref-height: 50px; -fx-cursor: hand; -fx-background-radius: 10px;");
+        Button btnFootball = new Button("⚽ FUTBOL");
+        btnFootball.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-pref-width: 180px; -fx-pref-height: 60px; -fx-cursor: hand; -fx-background-radius: 30px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 5);");
 
-        Button btnVolleyball = new Button("🏐 Voleybol");
-        btnVolleyball.setStyle("-fx-font-size: 18px; -fx-background-color: #2980b9; -fx-text-fill: white; -fx-pref-width: 150px; -fx-pref-height: 50px; -fx-cursor: hand; -fx-background-radius: 10px;");
+        Button btnVolleyball = new Button("🏐 VOLEYBOL");
+        btnVolleyball.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-background-color: #e67e22; -fx-text-fill: white; -fx-pref-width: 180px; -fx-pref-height: 60px; -fx-cursor: hand; -fx-background-radius: 30px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 5);");
 
-        // --- AKSİYONLAR: Butonlara tıklanınca Motoru (Factory) belirle ve 2. Ekrana geç ---
         btnFootball.setOnAction(e -> openDashboard(primaryStage, new FootballFactory(), "Futbol"));
         btnVolleyball.setOnAction(e -> openDashboard(primaryStage, new VolleyballFactory(), "Voleybol"));
 
-        HBox buttonBox = new HBox(20, btnFootball, btnVolleyball);
+        HBox buttonBox = new HBox(30, btnFootball, btnVolleyball);
         buttonBox.setAlignment(Pos.CENTER);
 
-        VBox root = new VBox(20, title, subtitle, buttonBox);
+        VBox root = new VBox(15, title, subtitle, buttonBox);
         root.setAlignment(Pos.CENTER);
-        root.setStyle("-fx-background-color: #ecf0f1;");
+        // Ana Menü Arka Planı (Koyu Mavi Gradyan)
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #1a2a6c, #b21f1f, #fdbb2d);");
 
         Scene mainScene = new Scene(root, 800, 600);
         primaryStage.setTitle("Sports Manager - M3");
@@ -51,54 +52,99 @@ public class MainApp extends Application {
         primaryStage.show();
     }
 
-    // --- 2. MENAJERLİK PANELİ EKRANI (Dashboard) ---
+    // --- 2. MENAJERLİK PANELİ EKRANI (Dinamik Temalı) ---
     private void openDashboard(Stage primaryStage, ISportFactory factory, String sportName) {
+        currentLeague = factory.createLeague(sportName + " Süper Ligi");
 
-        // Arka Planda Ligi ve Takımları Oluşturuyoruz
-        ILeague league = factory.createLeague(sportName + " Süper Ligi");
-        league.addTeam(factory.createTeam("Takım A"));
-        league.addTeam(factory.createTeam("Takım B"));
-        league.addTeam(factory.createTeam("Takım C"));
-        league.addTeam(factory.createTeam("Takım D"));
-        league.scheduleMatches();
+        ITeam teamA = factory.createTeam("Galatasaray"); teamA.setCoach(new Coach("Okan Buruk", 10));
+        ITeam teamB = factory.createTeam("Fenerbahçe"); teamB.setCoach(new Coach("İsmail Kartal", 10));
+        ITeam teamC = factory.createTeam("Beşiktaş"); teamC.setCoach(new Coach("Fernando Santos", 8));
+        ITeam teamD = factory.createTeam("Trabzonspor"); teamD.setCoach(new Coach("Abdullah Avcı", 9));
 
-        // Arayüz Elemanları
-        Label header = new Label(sportName + " Menajer Paneli");
-        header.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #34495e;");
+        teamA.addPlayer(factory.createPlayer("Icardi", "Forvet", 90));
+        teamB.addPlayer(factory.createPlayer("Dzeko", "Forvet", 88));
 
-        Label infoLabel = new Label("Sıradaki maçı oynamak için butona tıklayın.");
-        infoLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #7f8c8d;");
+        currentLeague.addTeam(teamA);
+        currentLeague.addTeam(teamB);
+        currentLeague.addTeam(teamC);
+        currentLeague.addTeam(teamD);
+        currentLeague.scheduleMatches();
 
-        // Lig Tablosunu Göstereceğimiz Liste Çerçevesi
-        ListView<String> standingsView = new ListView<>();
-        standingsView.setStyle("-fx-font-size: 16px; -fx-pref-height: 300px;");
-        updateStandingsUI(standingsView, league); // Tabloyu ilk kez doldur
-
-        // Maç Oynatma Butonu
-        Button btnPlayMatch = new Button("▶ Sonraki Haftayı Oyna");
-        btnPlayMatch.setStyle("-fx-font-size: 16px; -fx-background-color: #e67e22; -fx-text-fill: white; -fx-padding: 10 20; -fx-cursor: hand; -fx-background-radius: 5px;");
-
-        btnPlayMatch.setOnAction(e -> {
-            league.playNextRound();
-            updateStandingsUI(standingsView, league); // Maç bitince tabloyu güncelle
-        });
-
-        VBox dashboardRoot = new VBox(15, header, infoLabel, standingsView, btnPlayMatch);
-        dashboardRoot.setAlignment(Pos.TOP_CENTER);
-        dashboardRoot.setPadding(new Insets(30));
-        dashboardRoot.setStyle("-fx-background-color: #ecf0f1;");
-
-        // Sahneyi Değiştir (Yeni Ekrana Geçiş)
-        Scene dashboardScene = new Scene(dashboardRoot, 800, 600);
-        primaryStage.setScene(dashboardScene);
+        buildDashboardUI(primaryStage, sportName);
     }
 
-    // Tabloyu güncelleyen yardımcı metod
-    private void updateStandingsUI(ListView<String> listView, ILeague league) {
-        listView.getItems().clear();
+    private void buildDashboardUI(Stage primaryStage, String sportName) {
+        // --- SPORA GÖRE DİNAMİK TEMA BELİRLEME ---
+        String bgColor, primaryBtnColor, icon;
+        if (sportName.equals("Futbol")) {
+            bgColor = "-fx-background-color: linear-gradient(to bottom, #11998e, #38ef7d);"; // Çim Yeşili
+            primaryBtnColor = "#f1c40f"; // Sarı buton
+            icon = "⚽";
+        } else {
+            bgColor = "-fx-background-color: linear-gradient(to bottom, #eb3349, #f45c43);"; // Salon Turuncusu
+            primaryBtnColor = "#2c3e50"; // Koyu Lacivert buton
+            icon = "🏐";
+        }
+
+        Label header = new Label(icon + " " + sportName.toUpperCase() + " LİGİ PANELİ");
+        header.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 5, 0, 1, 1);");
+
+        // Liste Tasarımını Modernleştirme
+        standingsView = new ListView<>();
+        standingsView.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-control-inner-background: #ffffff; -fx-background-radius: 15; -fx-padding: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 10, 0, 0, 5);");
+        standingsView.setPrefHeight(250);
+        standingsView.setMaxWidth(600);
+        updateStandingsUI();
+
+        // --- BUTON TASARIMLARI ---
+        Button btnPlayMatch = new Button("▶ Sonraki Haftayı Oyna");
+        btnPlayMatch.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: " + primaryBtnColor + "; -fx-text-fill: " + (sportName.equals("Futbol") ? "black" : "white") + "; -fx-padding: 12 30; -fx-cursor: hand; -fx-background-radius: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 8, 0, 0, 4);");
+        btnPlayMatch.setOnAction(e -> {
+            currentLeague.playNextRound();
+            updateStandingsUI();
+        });
+
+        Button btnSave = new Button("💾 Kaydet");
+        btnSave.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: #2980b9; -fx-text-fill: white; -fx-padding: 10 20; -fx-cursor: hand; -fx-background-radius: 10;");
+        btnSave.setOnAction(e -> {
+            try {
+                DataManager.saveGame(currentLeague, "savegame.dat");
+                header.setText("✅ Oyun Kaydedildi!");
+            } catch (Exception ex) {
+                header.setText("❌ Kaydetme Hatası!");
+            }
+        });
+
+        Button btnLoad = new Button("📂 Yükle");
+        btnLoad.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: #8e44ad; -fx-text-fill: white; -fx-padding: 10 20; -fx-cursor: hand; -fx-background-radius: 10;");
+        btnLoad.setOnAction(e -> {
+            try {
+                currentLeague = DataManager.loadGame("savegame.dat");
+                updateStandingsUI();
+                header.setText("✅ Oyun Yüklendi!");
+            } catch (Exception ex) {
+                header.setText("❌ Yükleme Hatası!");
+            }
+        });
+
+        HBox saveLoadBox = new HBox(20, btnSave, btnLoad);
+        saveLoadBox.setAlignment(Pos.CENTER);
+
+        VBox dashboardRoot = new VBox(25, header, standingsView, btnPlayMatch, saveLoadBox);
+        dashboardRoot.setAlignment(Pos.CENTER);
+        dashboardRoot.setPadding(new Insets(40));
+        dashboardRoot.setStyle(bgColor);
+
+        primaryStage.setScene(new Scene(dashboardRoot, 800, 600));
+    }
+
+    private void updateStandingsUI() {
+        standingsView.getItems().clear();
         int rank = 1;
-        for (ITeam team : league.getStandings()) {
-            listView.getItems().add(rank + ". " + team.getName() + " \t| Puan: " + team.getPoints());
+        for (ITeam team : currentLeague.getStandings()) {
+            // Tablonun daha hizalı ve şık görünmesi için formatlama eklendi
+            String row = String.format("%d. %-20s | Puan: %d", rank, team.getName(), team.getPoints());
+            standingsView.getItems().add(row);
             rank++;
         }
     }

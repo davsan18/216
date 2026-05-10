@@ -10,6 +10,8 @@ public abstract class AbstractTeam implements ITeam {
     // Tactic and coach (coach may be null since the user is the coach)
     protected String tactic;
     protected ICoach coach;
+    protected String penaltyTaker;
+    protected String freeKickTaker;
 
     public AbstractTeam(String name) {
         this.name = name;
@@ -33,6 +35,10 @@ public abstract class AbstractTeam implements ITeam {
     @Override public String getTactic() { return tactic; }
     @Override public void setCoach(ICoach coach) { this.coach = coach; }
     @Override public ICoach getCoach() { return coach; }
+    @Override public String getPenaltyTaker() { return penaltyTaker; }
+    @Override public void setPenaltyTaker(String name) { this.penaltyTaker = name; }
+    @Override public String getFreeKickTaker() { return freeKickTaker; }
+    @Override public void setFreeKickTaker(String name) { this.freeKickTaker = name; }
 
     @Override
     public void substitutePlayer(IPlayer out, IPlayer in) {

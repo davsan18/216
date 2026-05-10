@@ -6,6 +6,7 @@ import sportsmanager.core.*;
 import sportsmanager.football.FootballFactory;
 import sportsmanager.volleyball.VolleyballFactory;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -219,6 +220,21 @@ public class SportsManagerTest {
     }
 
     @Test
+    public void testLargeFootballScheduleCompletesQuickly() {
+        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
+            int teamCount = 40;
+            ILeague league = factory.createLeague("Large Schedule Test");
+            for (int i = 1; i <= teamCount; i++) {
+                league.addTeam(factory.createTeam("Team " + i));
+            }
+
+            league.scheduleMatches();
+
+            assertEquals(teamCount * (teamCount - 1), league.getScheduledMatches().size());
+        });
+    }
+
+    @Test
     public void testFootballSubbedOutPlayerCannotReEnterSameMatch() {
         ISportFactory sportFactory = new FootballFactory();
         ITeam home = sportFactory.createTeam("Home");
@@ -252,6 +268,53 @@ public class SportsManagerTest {
         assertTrue(match.substitute(home, out, in));
         assertTrue(match.substitute(home, in, out));
         assertFalse(match.getRemoved(home).contains(out));
+    }
+
+    @Test
+    public void testVolleyballTickToEndFinishesFullMatchAndAwardsPoints() {
+        ISportFactory sportFactory = new VolleyballFactory();
+        ITeam home = sportFactory.createTeam("Home");
+        ITeam away = sportFactory.createTeam("Away");
+        fillTeam(home, sportFactory, 8);
+        fillTeam(away, sportFactory, 8);
+
+        IMatch match = sportFactory.createMatch(home, away);
+        match.tickToEnd();
+
+        assertTrue(match.isFinished());
+        assertNotNull(match.getWinner());
+        assertEquals(3, Math.max(match.getHomeScore(), match.getAwayScore()));
+        assertTrue(home.getPoints() > 0 || away.getPoints() > 0);
+    }
+
+    @Test
+    public void testVolleyballAutoFinishesOtherMatchesInManagedRound() {
+        ISportFactory sportFactory = new VolleyballFactory();
+        ILeague league = sportFactory.createLeague("Volley Week");
+        for (int i = 1; i <= 4; i++) {
+            ITeam team = sportFactory.createTeam("Team " + i);
+            fillTeam(team, sportFactory, 8);
+            league.addTeam(team);
+        }
+        league.scheduleMatches();
+
+        IMatch managedMatch = league.getScheduledMatches().get(0);
+        league.setManagedTeam(managedMatch.getHomeTeam());
+        managedMatch.play();
+        int round = league.getRoundOf(managedMatch);
+
+        league.autoFinishOtherMatchesInRound(managedMatch);
+
+        int playedInRound = 0;
+        for (IMatch match : league.getScheduledMatches()) {
+            if (league.getRoundOf(match) == round) {
+                assertTrue(match.isPlayed(), "Week match should be finished: "
+                        + match.getHomeTeam().getName() + " vs " + match.getAwayTeam().getName());
+                playedInRound++;
+            }
+        }
+        assertEquals(2, playedInRound);
+        assertTrue(league.getTeams().stream().mapToInt(ITeam::getPoints).sum() > 0);
     }
 
     @Test

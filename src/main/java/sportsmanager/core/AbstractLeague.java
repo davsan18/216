@@ -139,7 +139,6 @@ public abstract class AbstractLeague implements ILeague {
         int bestPenalty = Integer.MAX_VALUE;
         for (List<IMatch> candidate : candidates) {
             scheduledMatches = new ArrayList<>(candidate);
-            optimizeHomeAwayBalance();
             int penalty = homeAwayPenalty();
             if (penalty < bestPenalty) {
                 bestPenalty = penalty;
@@ -147,7 +146,10 @@ public abstract class AbstractLeague implements ILeague {
                 if (bestPenalty == 0) break;
             }
         }
-        if (best != null) scheduledMatches = best;
+        if (best != null) {
+            scheduledMatches = best;
+            optimizeHomeAwayBalance();
+        }
         assignKickoffTimes();
     }
 
@@ -185,118 +187,11 @@ public abstract class AbstractLeague implements ILeague {
 
     /**
      * Post-process the schedule to break 3+ consecutive home/away streaks for any team.
-     * Tries every first-leg home/away orientation and keeps the lowest-repeat valid schedule.
-     * Falls back to local paired swaps if no complete orientation is found.
+     * Uses paired local swaps so fixture generation stays fast even with larger leagues.
      */
     protected void optimizeHomeAwayBalance() {
         if (scheduledMatches.isEmpty()) return;
-
-        List<IMatch> base = new ArrayList<>(scheduledMatches);
-        BalanceResult best = new BalanceResult();
-        Map<String, ITeam> firstHomeByPair = new HashMap<>();
-        Map<ITeam, List<Boolean>> sequences = new HashMap<>();
-        for (ITeam team : teams) {
-            sequences.put(team, new ArrayList<>());
-        }
-
-        searchHomeAway(0, base, new ArrayList<>(), firstHomeByPair, sequences, 0, best);
-        if (best.matches != null) {
-            scheduledMatches = best.matches;
-        } else {
-            fixupHomeAwayClusters();
-        }
-    }
-
-    private void searchHomeAway(int index,
-                                List<IMatch> base,
-                                List<IMatch> current,
-                                Map<String, ITeam> firstHomeByPair,
-                                Map<ITeam, List<Boolean>> sequences,
-                                int repeatScore,
-                                BalanceResult best) {
-        if (repeatScore >= best.repeatScore) return;
-        if (index == base.size()) {
-            best.repeatScore = repeatScore;
-            best.matches = new ArrayList<>(current);
-            return;
-        }
-
-        IMatch original = base.get(index);
-        String key = pairKey(original);
-        ITeam firstHome = firstHomeByPair.get(key);
-        if (firstHome != null) {
-            IMatch oriented = original.getHomeTeam() == firstHome ? createReversedMatch(original) : original;
-            tryOrientation(index, base, current, firstHomeByPair, sequences, repeatScore, best, oriented, null);
-            return;
-        }
-
-        IMatch reversed = createReversedMatch(original);
-        tryOrientation(index, base, current, firstHomeByPair, sequences, repeatScore, best, original, key);
-        tryOrientation(index, base, current, firstHomeByPair, sequences, repeatScore, best, reversed, key);
-    }
-
-    private void tryOrientation(int index,
-                                List<IMatch> base,
-                                List<IMatch> current,
-                                Map<String, ITeam> firstHomeByPair,
-                                Map<ITeam, List<Boolean>> sequences,
-                                int repeatScore,
-                                BalanceResult best,
-                                IMatch match,
-                                String newPairKey) {
-        int addedScore = appendHomeAway(sequences, match);
-        if (addedScore < 0) return;
-
-        current.add(match);
-        if (newPairKey != null) firstHomeByPair.put(newPairKey, match.getHomeTeam());
-        searchHomeAway(index + 1, base, current, firstHomeByPair, sequences,
-                repeatScore + addedScore, best);
-        if (newPairKey != null) firstHomeByPair.remove(newPairKey);
-        current.remove(current.size() - 1);
-        removeHomeAway(sequences, match);
-    }
-
-    private int appendHomeAway(Map<ITeam, List<Boolean>> sequences, IMatch match) {
-        int homeScore = appendOne(sequences.get(match.getHomeTeam()), true);
-        if (homeScore < 0) return -1;
-        int awayScore = appendOne(sequences.get(match.getAwayTeam()), false);
-        if (awayScore < 0) {
-            removeLast(sequences.get(match.getHomeTeam()));
-            return -1;
-        }
-        return homeScore + awayScore;
-    }
-
-    private int appendOne(List<Boolean> sequence, boolean isHome) {
-        int size = sequence.size();
-        if (size >= 2 && sequence.get(size - 1) == isHome && sequence.get(size - 2) == isHome) {
-            return -1;
-        }
-        int score = (size >= 1 && sequence.get(size - 1) == isHome) ? 1 : 0;
-        sequence.add(isHome);
-        return score;
-    }
-
-    private void removeHomeAway(Map<ITeam, List<Boolean>> sequences, IMatch match) {
-        removeLast(sequences.get(match.getAwayTeam()));
-        removeLast(sequences.get(match.getHomeTeam()));
-    }
-
-    private void removeLast(List<Boolean> sequence) {
-        sequence.remove(sequence.size() - 1);
-    }
-
-    private String pairKey(IMatch match) {
-        int h = teams.indexOf(match.getHomeTeam());
-        int a = teams.indexOf(match.getAwayTeam());
-        int lo = Math.min(h, a);
-        int hi = Math.max(h, a);
-        return lo + "|" + hi;
-    }
-
-    private static class BalanceResult {
-        int repeatScore = Integer.MAX_VALUE;
-        List<IMatch> matches;
+        fixupHomeAwayClusters();
     }
 
     /**

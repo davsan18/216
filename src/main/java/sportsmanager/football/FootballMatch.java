@@ -251,6 +251,17 @@ public class FootballMatch extends AbstractMatch {
 
         if (rand.nextDouble() < 0.045 * ratio * 1.4) {
             IPlayer scorer = pickScorer(s.onField);
+            // VAR offside check: 8% of goals get reviewed; 20% of those are overturned.
+            if (rand.nextDouble() < 0.08) {
+                events.add(new MatchEvent(MatchEvent.Type.VAR_CHECK, getClockDisplay(), team, scorer, null,
+                        I18n.f("ev.varOffside", team.getName())));
+                if (rand.nextDouble() < 0.20) {
+                    events.add(new MatchEvent(MatchEvent.Type.VAR_CHECK, getClockDisplay(), team, scorer, null,
+                            I18n.t("ev.varGoalDisallowed")));
+                    // Goal disallowed; stop here, no other minute events for this team.
+                    return;
+                }
+            }
             scorer.addGoalThisMatch(getClockDisplay());
             if (isHome) homeScore++; else awayScore++;
             String text;
@@ -262,6 +273,50 @@ public class FootballMatch extends AbstractMatch {
             }
             events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), team, scorer, null, text));
             scorer.addSeasonGoal();
+        }
+        // Free-kick attempts (~2.5% per team per minute, scaled by ratio).
+        if (rand.nextDouble() < 0.025 * ratio) {
+            attemptFreeKick(team, isHome);
+        }
+        // Penalty attempts (~0.4% per team per minute). Half of these go through VAR first.
+        if (rand.nextDouble() < 0.004 * ratio) {
+            boolean viaVar = rand.nextBoolean();
+            if (viaVar) {
+                IPlayer fouled = pickRandom(s.onField);
+                String key = rand.nextBoolean() ? "ev.varHandball" : "ev.varFoul";
+                events.add(new MatchEvent(MatchEvent.Type.VAR_CHECK, getClockDisplay(), team, fouled, null,
+                        I18n.f(key, fouled.getName(), team.getName())));
+                if (rand.nextDouble() < 0.50) {
+                    events.add(new MatchEvent(MatchEvent.Type.VAR_CHECK, getClockDisplay(), team, null, null,
+                            I18n.t("ev.varNoAction")));
+                } else {
+                    attemptPenalty(team, isHome);
+                }
+            } else {
+                attemptPenalty(team, isHome);
+            }
+        }
+        // Random VAR review (handball/dangerous tackle): 0.3% per team per minute.
+        if (rand.nextDouble() < 0.003) {
+            IPlayer p = pickRandom(s.onField);
+            String key = rand.nextBoolean() ? "ev.varHandball" : "ev.varDanger";
+            events.add(new MatchEvent(MatchEvent.Type.VAR_CHECK, getClockDisplay(), team, p, null,
+                    I18n.f(key, p.getName(), team.getName())));
+            double r = rand.nextDouble();
+            if (r < 0.25) {
+                attemptPenalty(team, isHome);
+            } else if (r < 0.40) {
+                p.giveRedCard();
+                p.addSeasonRedCard();
+                p.addSuspensionMatches(1);
+                events.add(new MatchEvent(MatchEvent.Type.RED_CARD, getClockDisplay(), team, p, null,
+                        I18n.f("ev.varRedConfirmed", p.getName())));
+                removeFromField(team, p, false);
+                restoreGoalkeeperIfNeeded(team);
+            } else {
+                events.add(new MatchEvent(MatchEvent.Type.VAR_CHECK, getClockDisplay(), team, null, null,
+                        I18n.t("ev.varNoAction")));
+            }
         }
         if (rand.nextDouble() < 0.018) {
             IPlayer p = pickRandom(s.onField);
@@ -303,6 +358,67 @@ public class FootballMatch extends AbstractMatch {
             removeFromField(team, p, true);
             restoreGoalkeeperIfNeeded(team);
         }
+    }
+
+    private void attemptPenalty(ITeam team, boolean isHome) {
+        IPlayer taker = pickPenaltyTaker(team);
+        if (taker == null) return;
+        events.add(new MatchEvent(MatchEvent.Type.PENALTY, getClockDisplay(), team, taker, null,
+                I18n.f("ev.penaltyAwarded", team.getName(), team.getName(), taker.getName())));
+        double conv = 0.50 + (taker.getSkillLevel() / 100.0) * 0.35;
+        if (rand.nextDouble() < conv) {
+            taker.addGoalThisMatch(getClockDisplay());
+            taker.addSeasonGoal();
+            if (isHome) homeScore++; else awayScore++;
+            events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), team, taker, null,
+                    I18n.f("ev.penaltyGoal", taker.getName(), team.getName())));
+        } else {
+            String key = rand.nextBoolean() ? "ev.penaltySaved" : "ev.penaltyMiss";
+            events.add(new MatchEvent(MatchEvent.Type.PENALTY, getClockDisplay(), team, taker, null,
+                    I18n.f(key, taker.getName(), team.getName())));
+        }
+    }
+
+    private void attemptFreeKick(ITeam team, boolean isHome) {
+        IPlayer taker = pickFreeKickTaker(team);
+        if (taker == null) return;
+        events.add(new MatchEvent(MatchEvent.Type.FREE_KICK, getClockDisplay(), team, taker, null,
+                I18n.f("ev.freeKickAwarded", team.getName(), team.getName(), taker.getName())));
+        double conv = 0.06 + (taker.getSkillLevel() / 100.0) * 0.10;
+        if (rand.nextDouble() < conv) {
+            taker.addGoalThisMatch(getClockDisplay());
+            taker.addSeasonGoal();
+            if (isHome) homeScore++; else awayScore++;
+            events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), team, taker, null,
+                    I18n.f("ev.freeKickGoal", taker.getName(), team.getName())));
+        } else {
+            events.add(new MatchEvent(MatchEvent.Type.FREE_KICK, getClockDisplay(), team, taker, null,
+                    I18n.f("ev.freeKickMiss", taker.getName(), team.getName())));
+        }
+    }
+
+    private IPlayer pickPenaltyTaker(ITeam team) {
+        return pickDesignatedOrFallback(team, team.getPenaltyTaker());
+    }
+
+    private IPlayer pickFreeKickTaker(ITeam team) {
+        return pickDesignatedOrFallback(team, team.getFreeKickTaker());
+    }
+
+    private IPlayer pickDesignatedOrFallback(ITeam team, String designatedName) {
+        TeamState s = stateOf(team);
+        if (s.onField.isEmpty()) return null;
+        if (designatedName != null) {
+            for (IPlayer p : s.onField) {
+                if (designatedName.equals(p.getName())) return p;
+            }
+        }
+        IPlayer best = null;
+        for (IPlayer p : s.onField) {
+            if (isGoalkeeper(p)) continue;
+            if (best == null || p.getSkillLevel() > best.getSkillLevel()) best = p;
+        }
+        return best != null ? best : pickRandom(s.onField);
     }
 
     private int computePower(ITeam team, boolean isHome) {

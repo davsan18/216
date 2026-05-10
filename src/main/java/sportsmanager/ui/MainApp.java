@@ -331,9 +331,21 @@ public class MainApp extends Application {
             Squads.fillRoster(t, factory, isFootballSport);
             currentLeague.addTeam(t);
         }
-        currentLeague.scheduleMatches();
+        primaryStage.setScene(buildLoadingScene());
+        Thread scheduleBg = new Thread(() -> {
+            currentLeague.scheduleMatches();
+            Platform.runLater(() -> primaryStage.setScene(buildTeamSelectScene()));
+        });
+        scheduleBg.setDaemon(true);
+        scheduleBg.start();
+    }
 
-        primaryStage.setScene(buildTeamSelectScene());
+    private Scene buildLoadingScene() {
+        Label lbl = new Label("⏳  Yükleniyor…");
+        lbl.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #ecf0f1;");
+        StackPane root = new StackPane(lbl);
+        root.setStyle("-fx-background-color: #1a1a2e;");
+        return new Scene(root, 1100, 740);
     }
 
     private Scene buildTeamSelectScene() {
@@ -350,10 +362,15 @@ public class MainApp extends Application {
         teamCards.setAlignment(Pos.CENTER);
         for (ITeam t : currentLeague.getTeams()) teamCards.getChildren().add(buildTeamCard(t));
 
+        ScrollPane teamScroll = new ScrollPane(teamCards);
+        teamScroll.setFitToWidth(true);
+        teamScroll.setMaxHeight(520);
+        teamScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
         Button back = secondaryButton(I18n.t("teamSelect.back"), "#7f8c8d");
         back.setOnAction(e -> primaryStage.setScene(buildMainMenuScene()));
 
-        VBox content = new VBox(14, title, teamCards, back);
+        VBox content = new VBox(14, title, teamScroll, back);
         content.setAlignment(Pos.CENTER);
         content.setPadding(new Insets(24));
         content.setMaxWidth(820);
@@ -831,16 +848,34 @@ public class MainApp extends Application {
         discipline.getItems().addAll("Balanced", "Attack", "Defensive");
         discipline.setValue(extractPlanPart(1, "Balanced"));
 
+        ITeam planTeam = managedTeam;
+        List<IPlayer> startersOnField = squadOrder(currentMatch.getOnField(planTeam));
+        List<String> takerNames = new ArrayList<>();
+        for (IPlayer p : startersOnField) takerNames.add(p.getName());
+
+        ComboBox<String> penaltyTaker = new ComboBox<>();
+        penaltyTaker.getItems().addAll(takerNames);
+        if (managedTeam.getPenaltyTaker() != null && takerNames.contains(managedTeam.getPenaltyTaker())) {
+            penaltyTaker.setValue(managedTeam.getPenaltyTaker());
+        }
+
+        ComboBox<String> freeKickTaker = new ComboBox<>();
+        freeKickTaker.getItems().addAll(takerNames);
+        if (managedTeam.getFreeKickTaker() != null && takerNames.contains(managedTeam.getFreeKickTaker())) {
+            freeKickTaker.setValue(managedTeam.getFreeKickTaker());
+        }
+
         Button applyPlan = new Button(I18n.t("pm.applyPlan"));
         applyPlan.setStyle("-fx-font-weight: bold; -fx-background-color: #2980b9; -fx-text-fill: white;");
         applyPlan.setOnAction(e -> {
             managedTeam.setTactic(formation.getValue() + " / " + discipline.getValue());
+            managedTeam.setPenaltyTaker(penaltyTaker.getValue());
+            managedTeam.setFreeKickTaker(freeKickTaker.getValue());
             primaryStage.setScene(buildPreMatchScene());
         });
 
-        ITeam planTeam = managedTeam;
         ListView<IPlayer> starters = new ListView<>();
-        starters.getItems().setAll(squadOrder(currentMatch.getOnField(planTeam)));
+        starters.getItems().setAll(startersOnField);
         starters.setCellFactory(lv -> new PlayerCell());
         starters.setPrefHeight(140);
 
@@ -874,7 +909,12 @@ public class MainApp extends Application {
                 applyPlan);
         choices.setAlignment(Pos.CENTER);
 
-        VBox panel = new VBox(8, choices, lists);
+        HBox takers = new HBox(8,
+                makePlanLabel(I18n.t("pm.penaltyTaker")), penaltyTaker,
+                makePlanLabel(I18n.t("pm.freeKickTaker")), freeKickTaker);
+        takers.setAlignment(Pos.CENTER);
+
+        VBox panel = new VBox(8, choices, takers, lists);
         panel.setPadding(new Insets(10));
         panel.setMaxWidth(900);
         panel.setStyle("-fx-background-color: rgba(255,255,255,0.12); -fx-background-radius: 10;");
@@ -1259,28 +1299,29 @@ public class MainApp extends Application {
         if (currentMatch == null || currentMatch.isFinished()) return;
         if (matchTimeline != null) matchTimeline.pause();
         selectPauseSpeed();
-        while (!currentMatch.isFinished()) {
-            if (currentMatch.isWaitingForSecondHalf()) {
-                currentMatch.startSecondHalf();
-                continue;
-            }
-            currentMatch.tick(20);
-            if (currentMatch.isWaitingForSecondHalf()) {
-                currentMatch.startSecondHalf();
-                continue;
-            }
-            if (currentMatch.needsSubstitution(managedTeam)) {
+        if (quickFinishBtn != null) quickFinishBtn.setDisable(true);
+        IMatch snap = currentMatch;
+        Thread bg = new Thread(() -> {
+            snap.setUserTeam(null);
+            snap.tickToEnd();
+            currentLeague.autoFinishOtherMatchesInRound(snap);
+            Platform.runLater(() -> {
                 refreshMatchView();
-                openSubDialog(true);
-                if (currentMatch.needsSubstitution(managedTeam)) break;
-            }
-        }
-        refreshMatchView();
-        if (currentMatch.isFinished()) onMatchFinished();
+                if (substituteBtn != null) substituteBtn.setDisable(true);
+                if (speedGroup != null) {
+                    for (Toggle t : speedGroup.getToggles()) {
+                        if ((Integer) t.getUserData() > 0) ((ToggleButton) t).setDisable(true);
+                    }
+                }
+                if (continueBtn != null) continueBtn.setVisible(true);
+                if (secondHalfBtn != null) secondHalfBtn.setVisible(false);
+            });
+        });
+        bg.setDaemon(true);
+        bg.start();
     }
 
     private void onMatchFinished() {
-        currentLeague.autoFinishOtherMatchesInRound(currentMatch);
         if (substituteBtn != null) substituteBtn.setDisable(true);
         if (quickFinishBtn != null) quickFinishBtn.setDisable(true);
         if (speedGroup != null) {
@@ -1288,9 +1329,15 @@ public class MainApp extends Application {
                 if ((Integer) t.getUserData() > 0) ((ToggleButton) t).setDisable(true);
             }
         }
-        if (continueBtn != null) continueBtn.setVisible(true);
         if (secondHalfBtn != null) secondHalfBtn.setVisible(false);
         refreshMatchView();
+        IMatch snap = currentMatch;
+        Thread bg = new Thread(() -> {
+            currentLeague.autoFinishOtherMatchesInRound(snap);
+            Platform.runLater(() -> { if (continueBtn != null) continueBtn.setVisible(true); });
+        });
+        bg.setDaemon(true);
+        bg.start();
     }
 
     private void finishAndReturn() {
@@ -1311,9 +1358,15 @@ public class MainApp extends Application {
         if (r.isPresent() && r.get() == ButtonType.OK) {
             stopMatchTimeline();
             currentMatch.setUserTeam(null);
-            currentMatch.tickToEnd();
-            currentLeague.autoFinishOtherMatchesInRound(currentMatch);
-            primaryStage.setScene(buildDashboardScene());
+            IMatch snap = currentMatch;
+            primaryStage.setScene(buildLoadingScene());
+            Thread bg = new Thread(() -> {
+                snap.tickToEnd();
+                currentLeague.autoFinishOtherMatchesInRound(snap);
+                Platform.runLater(() -> primaryStage.setScene(buildDashboardScene()));
+            });
+            bg.setDaemon(true);
+            bg.start();
         }
     }
 
@@ -1706,11 +1759,8 @@ public class MainApp extends Application {
             Text awayText = new Text(away.getName() + (away == it.managed ? "★" : ""));
             awayText.setFont(Font.font("System", winner == away ? FontWeight.BOLD : FontWeight.NORMAL, 13));
             awayText.setFill(winner == away ? Color.web("#1e6f30") : Color.web("#222"));
-            Text mark = new Text("  " + (m.isPlayed() ? (winner == null ? "=" : "✓") : "—"));
-            mark.setFont(Font.font("System", FontWeight.BOLD, 12));
-            mark.setFill(m.isPlayed() ? (winner == null ? Color.web("#888") : Color.web("#1e6f30")) : Color.web("#bbb"));
 
-            TextFlow flow = new TextFlow(indent, time, homeText, middle, awayText, mark);
+            TextFlow flow = new TextFlow(indent, time, homeText, middle, awayText);
             setGraphic(flow); setText(null);
         }
     }
@@ -1734,6 +1784,9 @@ public class MainApp extends Application {
                 case RED_CARD: body.setFill(Color.web("#9b2c2c")); break;
                 case INJURY: body.setFill(Color.web("#7a1f9a")); break;
                 case SUBSTITUTION: body.setFill(Color.web("#1f4e9a")); break;
+                case VAR_CHECK: body.setFill(Color.web("#5e2a8a")); break;
+                case PENALTY: body.setFill(Color.web("#b45309")); break;
+                case FREE_KICK: body.setFill(Color.web("#0e7490")); break;
                 default: body.setFill(Color.web("#333"));
             }
             TextFlow flow = new TextFlow(icon, clock, body);

@@ -7,7 +7,8 @@ public class MatchEvent implements Serializable {
 
     public enum Type {
         KICKOFF, GOAL, YELLOW_CARD, RED_CARD, INJURY, SUBSTITUTION,
-        HALFTIME, FULLTIME, SET_START, SET_END, MATCH_END
+        HALFTIME, FULLTIME, SET_START, SET_END, MATCH_END,
+        VAR_CHECK, PENALTY, FREE_KICK
     }
 
     public final Type type;
@@ -39,6 +40,9 @@ public class MatchEvent implements Serializable {
             case MATCH_END: return "⏹";
             case SET_START: return "▶";
             case SET_END: return "✓";
+            case VAR_CHECK: return "📺";
+            case PENALTY: return "🎯";
+            case FREE_KICK: return "🦶";
             default: return "•";
         }
     }

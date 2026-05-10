@@ -15,4 +15,10 @@ public interface ITeam extends java.io.Serializable {
     void setCoach(ICoach coach);
     ICoach getCoach();
     void substitutePlayer(IPlayer out, IPlayer in);
+
+    // Designated set-piece takers (football only). Names must match a player on this team.
+    default String getPenaltyTaker() { return null; }
+    default void setPenaltyTaker(String playerName) {}
+    default String getFreeKickTaker() { return null; }
+    default void setFreeKickTaker(String playerName) {}
 }

@@ -119,6 +119,8 @@ public final class I18n {
         put("pm.formation",       "Diziliş", "Formation");
         put("pm.discipline",      "Disiplin", "Discipline");
         put("pm.applyPlan",       "Planı Uygula", "Apply Plan");
+        put("pm.penaltyTaker",    "Penaltıcı", "Penalty Taker");
+        put("pm.freeKickTaker",   "Frikikçi", "Free Kick Taker");
         put("pm.swap",            "Oyuncu Değiştir", "Swap Players");
         put("pm.swapFailed",      "Bu değişiklik yapılamaz. Futbolda sahada mutlaka kaleci olmalı.",
                                   "This change is not allowed. Football lineups must keep a goalkeeper on the field.");
@@ -209,6 +211,28 @@ public final class I18n {
         put("ev.fulltimeDraw",     "Maç bitti: %s %d-%d %s — Beraberlik",
                                    "Full-time: %s %d-%d %s — Draw");
         put("ev.scorePoint",       "Sayı: %s (%s)", "Point: %s (%s)");
+        put("ev.varHandball",      "Hakem VAR'a gidiyor: %s elle oynama iddiası (%s)",
+                                   "Referee goes to VAR: handball claim on %s (%s)");
+        put("ev.varFoul",          "Hakem VAR'a gidiyor: %s yerde kaldı, ceza sahası faulü iddiası (%s)",
+                                   "Referee goes to VAR: %s went down, possible foul in the box (%s)");
+        put("ev.varOffside",       "Hakem VAR'a gidiyor: ofsayt kontrolü (%s golü)",
+                                   "Referee goes to VAR: offside check (%s goal)");
+        put("ev.varDanger",        "Hakem VAR'a gidiyor: %s'ya tehlikeli müdahale iddiası",
+                                   "Referee goes to VAR: dangerous tackle on %s claim");
+        put("ev.varNoAction",      "VAR sonucu: pozisyon devam, karar verilmedi",
+                                   "VAR decision: play continues, no action");
+        put("ev.varGoalDisallowed","VAR sonucu: gol iptal — ofsayt", "VAR decision: goal disallowed — offside");
+        put("ev.varRedConfirmed",  "VAR sonucu: %s kırmızı kart gördü", "VAR decision: %s shown a red card");
+        put("ev.penaltyAwarded",   "🎯 Penaltı! %s lehine (%s) — atıcı: %s",
+                                   "🎯 Penalty! Awarded to %s (%s) — taker: %s");
+        put("ev.penaltyGoal",      "🎯 PENALTI GOL! %s (%s)", "🎯 PENALTY GOAL! %s (%s)");
+        put("ev.penaltyMiss",      "🎯 Penaltı kaçtı: %s (%s)", "🎯 Penalty missed: %s (%s)");
+        put("ev.penaltySaved",     "🎯 Kaleci kurtardı: %s'nin penaltısı (%s)",
+                                   "🎯 Goalkeeper saved %s's penalty (%s)");
+        put("ev.freeKickAwarded",  "🦶 Frikik %s lehine (%s) — atıcı: %s",
+                                   "🦶 Free kick to %s (%s) — taker: %s");
+        put("ev.freeKickGoal",     "🦶 FRİKİKTEN GOL! %s (%s)", "🦶 GOAL from free kick! %s (%s)");
+        put("ev.freeKickMiss",     "🦶 Frikik kaçtı: %s (%s)", "🦶 Free kick missed: %s (%s)");
         put("ev.setEnd",           "Set %d bitti: %d-%d  (Setler: %d-%d)",
                                    "Set %d ended: %d-%d  (Sets: %d-%d)");
         put("ev.setStart",         "Set %d başlıyor", "Set %d starts");

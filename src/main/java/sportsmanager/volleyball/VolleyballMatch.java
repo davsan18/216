@@ -97,6 +97,25 @@ public class VolleyballMatch extends AbstractMatch {
     }
 
     @Override
+    public List<MatchEvent> tickToEnd() {
+        List<MatchEvent> all = new ArrayList<>();
+        if (!started) start();
+        int safety = 10000;
+        while (!played) {
+            if (waitingForNextSet) {
+                startSecondHalf();
+            }
+            if (super.isPaused()) {
+                autoResolveSubs();
+            }
+            List<MatchEvent> chunk = tick(getAutoChunk());
+            all.addAll(chunk);
+            if (--safety <= 0) break;
+        }
+        return all;
+    }
+
+    @Override
     public boolean substitute(ITeam team, IPlayer out, IPlayer in) {
         TeamState s = stateOf(team);
         if (out == null || in == null) return false;
@@ -179,6 +198,7 @@ public class VolleyballMatch extends AbstractMatch {
             IPlayer scorer = pickScorer(homeTeam);
             if (scorer != null) {
                 scorer.addGoalThisMatch(getClockDisplay());
+                scorer.addSeasonGoal();
                 events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), homeTeam, scorer, null,
                         I18n.f("ev.scorePoint", scorer.getName(), homeTeam.getName())));
             }
@@ -191,6 +211,7 @@ public class VolleyballMatch extends AbstractMatch {
             IPlayer scorer = pickScorer(awayTeam);
             if (scorer != null) {
                 scorer.addGoalThisMatch(getClockDisplay());
+                scorer.addSeasonGoal();
                 events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), awayTeam, scorer, null,
                         I18n.f("ev.scorePoint", scorer.getName(), awayTeam.getName())));
             }

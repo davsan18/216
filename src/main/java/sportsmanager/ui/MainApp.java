@@ -88,6 +88,7 @@ public class MainApp extends Application {
     private Label matchClockLabel;
     private Label matchHomeScoreLabel;
     private Label matchAwayScoreLabel;
+    private Label matchSubScoreLabel;
     private ListView<MatchEvent> eventsView;
     private ListView<IPlayer> ourOnFieldView;
     private ListView<IPlayer> ourBenchView;
@@ -459,13 +460,18 @@ public class MainApp extends Application {
 
         TabPane statsTabs = new TabPane();
         statsTabs.setStyle("-fx-tab-min-width: 92px;");
-        Tab goalsTab = new Tab(I18n.t("dash.statsGoals"), goalsStatsView);
-        Tab cardsTab = new Tab(I18n.t("dash.statsCards"), cardsStatsView);
+        String goalsLabel = isFootballSport ? I18n.t("dash.statsGoals") : I18n.t("dash.statsPoints");
+        Tab goalsTab = new Tab(goalsLabel, goalsStatsView);
         Tab availabilityTab = new Tab(I18n.t("dash.statsAvailability"), availabilityStatsView);
         goalsTab.setClosable(false);
-        cardsTab.setClosable(false);
         availabilityTab.setClosable(false);
-        statsTabs.getTabs().addAll(goalsTab, cardsTab, availabilityTab);
+        if (isFootballSport) {
+            Tab cardsTab = new Tab(I18n.t("dash.statsCards"), cardsStatsView);
+            cardsTab.setClosable(false);
+            statsTabs.getTabs().addAll(goalsTab, cardsTab, availabilityTab);
+        } else {
+            statsTabs.getTabs().addAll(goalsTab, availabilityTab);
+        }
         VBox statsCard = card(I18n.t("dash.stats"), statsTabs);
 
         VBox right = new VBox(10, fixtureCard, statsCard);
@@ -596,7 +602,10 @@ public class MainApp extends Application {
         for (PlayerStatLine line : cards) cardsStatsView.getItems().add(line);
         for (PlayerStatLine line : availability) availabilityStatsView.getItems().add(line);
 
-        if (goalsStatsView.getItems().isEmpty()) goalsStatsView.getItems().add(PlayerStatLine.empty(I18n.t("dash.noGoals")));
+        if (goalsStatsView.getItems().isEmpty()) {
+            String emptyKey = isFootballSport ? "dash.noGoals" : "dash.noPoints";
+            goalsStatsView.getItems().add(PlayerStatLine.empty(I18n.t(emptyKey)));
+        }
         if (cardsStatsView.getItems().isEmpty()) cardsStatsView.getItems().add(PlayerStatLine.empty(I18n.t("dash.noCards")));
         if (availabilityStatsView.getItems().isEmpty()) availabilityStatsView.getItems().add(PlayerStatLine.empty(I18n.t("dash.noAvailability")));
     }
@@ -979,13 +988,23 @@ public class MainApp extends Application {
         Label awayAbbrLabel = new Label(abbr(a.getName()) + (a == managedTeam ? " ★" : ""));
         awayAbbrLabel.setStyle(scoreTeamStyle());
 
-        matchClockLabel = new Label("0'");
+        matchClockLabel = new Label(isFootballSport ? "0'" : "S1");
         matchClockLabel.setStyle("-fx-font-family: 'Consolas','Courier New',monospace;"
                 + " -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #f1c40f;"
                 + " -fx-padding: 6 14;");
 
-        HBox scoreboardInner = new HBox(14, homeAbbrLabel, matchHomeScoreLabel, sep,
+        matchSubScoreLabel = new Label("");
+        matchSubScoreLabel.setStyle("-fx-font-family: 'Consolas','Courier New',monospace;"
+                + " -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #ecf0f1;");
+
+        HBox scoreRow = new HBox(14, homeAbbrLabel, matchHomeScoreLabel, sep,
                 matchAwayScoreLabel, awayAbbrLabel);
+        scoreRow.setAlignment(Pos.CENTER);
+
+        VBox scoreboardInner = new VBox(2, scoreRow);
+        if (!isFootballSport) {
+            scoreboardInner.getChildren().add(matchSubScoreLabel);
+        }
         scoreboardInner.setAlignment(Pos.CENTER);
         scoreboardInner.setPadding(new Insets(8, 22, 8, 22));
         scoreboardInner.setStyle("-fx-background-color: linear-gradient(to bottom, #111111, #2c2c2c);"
@@ -1300,9 +1319,22 @@ public class MainApp extends Application {
 
     private void refreshMatchView() {
         if (currentMatch == null) return;
-        matchClockLabel.setText(currentMatch.getClockDisplay());
         matchHomeScoreLabel.setText(String.valueOf(currentMatch.getHomeScore()));
         matchAwayScoreLabel.setText(String.valueOf(currentMatch.getAwayScore()));
+        if (!isFootballSport && currentMatch instanceof sportsmanager.volleyball.VolleyballMatch) {
+            sportsmanager.volleyball.VolleyballMatch vm = (sportsmanager.volleyball.VolleyballMatch) currentMatch;
+            if (currentMatch.isFinished()) {
+                matchClockLabel.setText(I18n.t("mv.fullTime"));
+                if (matchSubScoreLabel != null) matchSubScoreLabel.setText("");
+            } else {
+                matchClockLabel.setText("Set " + vm.getCurrentSet());
+                if (matchSubScoreLabel != null) {
+                    matchSubScoreLabel.setText(vm.getHomeSetPoints() + "  -  " + vm.getAwaySetPoints());
+                }
+            }
+        } else {
+            matchClockLabel.setText(currentMatch.getClockDisplay());
+        }
 
         eventsView.getItems().setAll(currentMatch.getEvents());
         if (!eventsView.getItems().isEmpty()) eventsView.scrollTo(eventsView.getItems().size() - 1);
@@ -1358,7 +1390,11 @@ public class MainApp extends Application {
             formationHolder.getChildren().setAll(pitch);
         }
 
-        if (secondHalfBtn != null) secondHalfBtn.setVisible(currentMatch.isWaitingForSecondHalf());
+        if (secondHalfBtn != null) {
+            boolean waiting = currentMatch.isWaitingForSecondHalf();
+            if (waiting) secondHalfBtn.setText(currentMatch.getResumeButtonLabel());
+            secondHalfBtn.setVisible(waiting);
+        }
 
         int remaining = currentMatch.getRemainingSubs(managedTeam);
         int max = currentMatch.getMaxSubs();
@@ -1382,7 +1418,10 @@ public class MainApp extends Application {
         }
         if (matchTimeline != null) matchTimeline.pause();
         selectPauseSpeed();
-        if (secondHalfBtn != null) secondHalfBtn.setVisible(true);
+        if (secondHalfBtn != null) {
+            secondHalfBtn.setText(currentMatch.getResumeButtonLabel());
+            secondHalfBtn.setVisible(true);
+        }
         return true;
     }
 
@@ -1676,12 +1715,13 @@ public class MainApp extends Application {
         }
     }
 
-    private static class EventCell extends ListCell<MatchEvent> {
+    private class EventCell extends ListCell<MatchEvent> {
         @Override
         protected void updateItem(MatchEvent ev, boolean empty) {
             super.updateItem(ev, empty);
             if (empty || ev == null) { setGraphic(null); setText(null); return; }
-            Text icon = new Text(ev.getIcon() + "  ");
+            String iconStr = (ev.type == MatchEvent.Type.GOAL && !isFootballSport) ? "🏐" : ev.getIcon();
+            Text icon = new Text(iconStr + "  ");
             icon.setFont(Font.font("System", FontWeight.BOLD, 13));
             Text clock = new Text(String.format("%-10s ", ev.clock));
             clock.setFont(Font.font("Consolas", FontWeight.NORMAL, 12));
@@ -1730,7 +1770,7 @@ public class MainApp extends Application {
         }
     }
 
-    private static class GoalStatCell extends ListCell<PlayerStatLine> {
+    private class GoalStatCell extends ListCell<PlayerStatLine> {
         @Override
         protected void updateItem(PlayerStatLine line, boolean empty) {
             super.updateItem(line, empty);
@@ -1743,7 +1783,8 @@ public class MainApp extends Application {
             VBox info = statIdentity(line);
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
-            Label goals = pill(I18n.t("stats.goalShort") + " " + line.player.getSeasonGoals(), "#1e8449", "white");
+            String pillLabel = isFootballSport ? I18n.t("stats.goalShort") : I18n.t("stats.pointShort");
+            Label goals = pill(pillLabel + " " + line.player.getSeasonGoals(), "#1e8449", "white");
             HBox row = new HBox(8, rank, info, spacer, goals);
             row.setAlignment(Pos.CENTER_LEFT);
             setGraphic(row); setText(null);
@@ -1838,7 +1879,7 @@ public class MainApp extends Application {
         return card;
     }
 
-    private static class PlayerCell extends ListCell<IPlayer> {
+    private class PlayerCell extends ListCell<IPlayer> {
         @Override
         protected void updateItem(IPlayer p, boolean empty) {
             super.updateItem(p, empty);
@@ -1847,18 +1888,23 @@ public class MainApp extends Application {
             row.setAlignment(Pos.CENTER_LEFT);
 
             if (p.isInjured()) row.getChildren().add(pill(I18n.t("status.injured"), "#7a1f9a", "white"));
-            if (p.isSuspended()) row.getChildren().add(pill(I18n.t("status.suspendedShort"), "#9b2c2c", "white"));
-            if (p.hasRedCard()) {
-                row.getChildren().add(cardIcon("#c0392b"));
-            } else {
-                for (int i = 0; i < Math.min(2, p.getYellowCards()); i++) {
-                    row.getChildren().add(cardIcon("#f1c40f"));
+            if (p.isSuspended() && isFootballSport) {
+                row.getChildren().add(pill(I18n.t("status.suspendedShort"), "#9b2c2c", "white"));
+            }
+            if (isFootballSport) {
+                if (p.hasRedCard()) {
+                    row.getChildren().add(cardIcon("#c0392b"));
+                } else {
+                    for (int i = 0; i < Math.min(2, p.getYellowCards()); i++) {
+                        row.getChildren().add(cardIcon("#f1c40f"));
+                    }
                 }
             }
 
             StringBuilder sb = new StringBuilder();
+            String scoreIcon = isFootballSport ? "⚽" : "🏐";
             if (p.getGoalsThisMatch() > 0) {
-                sb.append("⚽");
+                sb.append(scoreIcon);
                 if (p.getGoalsThisMatch() > 1) sb.append(p.getGoalsThisMatch());
                 sb.append(" ");
             }
@@ -1867,14 +1913,14 @@ public class MainApp extends Application {
             }
             sb.append(p.getName())
               .append("  (").append(p.getPosition()).append(", ").append(p.getSkillLevel()).append(")");
-            if (!p.getGoalMinutes().isEmpty()) {
-                sb.append("  ⚽ ").append(String.join(", ", p.getGoalMinutes()));
+            if (isFootballSport && !p.getGoalMinutes().isEmpty()) {
+                sb.append("  ").append(scoreIcon).append(" ").append(String.join(", ", p.getGoalMinutes()));
             }
             Label l = new Label(sb.toString());
             l.setStyle("-fx-font-size: 13px;"
                     + (p.isInjured() ? " -fx-text-fill: #7a1f9a;" : "")
-                    + (p.isSuspended() ? " -fx-text-fill: #9b2c2c; -fx-font-weight: bold;" : "")
-                    + (p.hasRedCard() ? " -fx-text-fill: #9b2c2c; -fx-font-style: italic;" : "")
+                    + (isFootballSport && p.isSuspended() ? " -fx-text-fill: #9b2c2c; -fx-font-weight: bold;" : "")
+                    + (isFootballSport && p.hasRedCard() ? " -fx-text-fill: #9b2c2c; -fx-font-style: italic;" : "")
                     + (p.getSubInClock() != null ? " -fx-font-weight: bold;" : ""));
             row.getChildren().add(l);
             setGraphic(row); setText(null);

@@ -76,9 +76,11 @@ public final class I18n {
         put("dash.stats",         "📈 İstatistikler", "📈 Stats");
         put("dash.noStats",       "Henüz istatistik oluşmadı.", "No stats yet.");
         put("dash.statsGoals",    "Goller", "Goals");
+        put("dash.statsPoints",   "Sayılar", "Points");
         put("dash.statsCards",    "Kartlar", "Cards");
         put("dash.statsAvailability", "Eksikler", "Missing");
         put("dash.noGoals",       "Henüz gol istatistiği yok.", "No goal stats yet.");
+        put("dash.noPoints",      "Henüz sayı istatistiği yok.", "No point stats yet.");
         put("dash.noCards",       "Henüz kart istatistiği yok.", "No card stats yet.");
         put("dash.noAvailability","Şu anda sakat veya cezalı oyuncu yok.", "No injured or suspended players right now.");
         put("dash.standingsHeader","Takım", "Team");
@@ -125,6 +127,7 @@ public final class I18n {
 
         // ===== MATCH VIEW =====
         put("mv.leave",           "⬅ Maçtan Çık", "⬅ Leave Match");
+        put("mv.fullTime",        "Maç Bitti", "Full Time");
         put("mv.events",          "📜 Maç Olayları", "📜 Match Events");
         put("mv.squads",          "🧑‍🤝‍🧑 Kadrolar", "🧑‍🤝‍🧑 Squads");
         put("mv.ourSquad",        "Bizim Kadro", "Our Squad");
@@ -139,6 +142,7 @@ public final class I18n {
         put("mv.unavailable",     "Çıkanlar", "Exited");
         put("mv.quickFinish",     "⏭ Hızlı Bitir", "⏭ Quick Finish");
         put("mv.startSecondHalf", "▶ 2. Yarıya Başla", "▶ Start Second Half");
+        put("mv.startNextSet",    "▶ %d. Sete Geç", "▶ Start Set %d");
         put("mv.substitute",      "🔁 Oyuncu Değişikliği", "🔁 Substitution");
         put("mv.substituteWithLimit", "🔁 Oyuncu Değişikliği %d/%d", "🔁 Substitution %d/%d");
         put("mv.continueBtn",     "✓ Devam (Panele Dön)", "✓ Continue (Back to Dashboard)");
@@ -221,5 +225,6 @@ public final class I18n {
         put("status.suspended",    "kart cezalısı (%d maç)", "suspended (%d match)");
         put("status.exited",       "oyundan çıktı", "left the game");
         put("stats.goalShort",     "GOL", "GOAL");
+        put("stats.pointShort",    "SAYI", "PTS");
     }
 }

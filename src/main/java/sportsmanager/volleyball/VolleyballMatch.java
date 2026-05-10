@@ -32,6 +32,7 @@ public class VolleyballMatch extends AbstractMatch {
     private Set<IPlayer> awayStartersUsedSub = new HashSet<>();
     private Map<IPlayer, IPlayer> homeSubToStarter = new HashMap<>();
     private Map<IPlayer, IPlayer> awaySubToStarter = new HashMap<>();
+    private boolean waitingForNextSet = false;
 
     public VolleyballMatch(ITeam home, ITeam away) {
         super(home, away);
@@ -39,6 +40,41 @@ public class VolleyballMatch extends AbstractMatch {
 
     @Override public int getStartingSize() { return 6; }
     @Override public int getMaxSubs() { return 6; }
+    @Override public int getHomeScore() { return homeSetsWon; }
+    @Override public int getAwayScore() { return awaySetsWon; }
+    public int getHomeSetPoints() { return homeSetPoints; }
+    public int getAwaySetPoints() { return awaySetPoints; }
+    public int getCurrentSet() { return currentSet; }
+
+    @Override
+    public boolean isPaused() {
+        return waitingForNextSet || super.isPaused();
+    }
+
+    @Override
+    public boolean isWaitingForSecondHalf() {
+        return waitingForNextSet;
+    }
+
+    @Override
+    public void startSecondHalf() {
+        if (!waitingForNextSet) return;
+        waitingForNextSet = false;
+        currentSet++;
+        homeSetPoints = 0;
+        awaySetPoints = 0;
+        servingHome = currentSet % 2 == 1;
+        homeState.subsUsed = 0;
+        awayState.subsUsed = 0;
+        resetSetSubstitutionRules();
+        events.add(new MatchEvent(MatchEvent.Type.SET_START, getClockDisplay(), null, null, null,
+                I18n.f("ev.setStart", currentSet)));
+    }
+
+    @Override
+    public String getResumeButtonLabel() {
+        return I18n.f("mv.startNextSet", currentSet + 1);
+    }
     @Override public String getClockDisplay() {
         if (!started) return "S1 0-0";
         if (played) return homeSetsWon + "-" + awaySetsWon + " (set)";
@@ -118,22 +154,6 @@ public class VolleyballMatch extends AbstractMatch {
         double homeProb = (double) homePower / Math.max(1, homePower + awayPower);
 
         boolean homePoint;
-        // Random card check first — red card gives the OTHER team a point
-        IPlayer carded = maybeCard(homeTeam);
-        if (carded != null && carded.hasRedCard()) {
-            // Penalty: away gets the point
-            awaySetPoints++;
-            events.add(new MatchEvent(MatchEvent.Type.RED_CARD, getClockDisplay(), homeTeam, carded, null,
-                    I18n.f("ev.redPenaltyVolley", carded.getName(), homeTeam.getName())));
-            return;
-        }
-        carded = maybeCard(awayTeam);
-        if (carded != null && carded.hasRedCard()) {
-            homeSetPoints++;
-            events.add(new MatchEvent(MatchEvent.Type.RED_CARD, getClockDisplay(), awayTeam, carded, null,
-                    I18n.f("ev.redPenaltyVolley", carded.getName(), awayTeam.getName())));
-            return;
-        }
 
         // Check injuries
         if (rand.nextDouble() < 0.004) {
@@ -177,25 +197,6 @@ public class VolleyballMatch extends AbstractMatch {
         }
     }
 
-    /** ~1.2% per team per rally. Returns the carded player (with red flag set if escalated). */
-    private IPlayer maybeCard(ITeam team) {
-        TeamState s = stateOf(team);
-        if (s.onField.isEmpty()) return null;
-        if (rand.nextDouble() < 0.012) {
-            IPlayer p = pickRandom(s.onField);
-            p.addYellowCard();
-            if (p.getYellowCards() >= 2) {
-                p.giveRedCard();
-                events.add(new MatchEvent(MatchEvent.Type.YELLOW_CARD, getClockDisplay(), team, p, null,
-                        I18n.f("ev.secondYellow", p.getName())));
-                return p;
-            }
-            events.add(new MatchEvent(MatchEvent.Type.YELLOW_CARD, getClockDisplay(), team, p, null,
-                    I18n.f("ev.yellowWarnVolley", p.getName(), team.getName())));
-        }
-        return null;
-    }
-
     private boolean isSetOver() {
         int target = (currentSet == 5) ? 15 : 25;
         if (homeSetPoints >= target && homeSetPoints - awaySetPoints >= 2) return true;
@@ -213,15 +214,7 @@ public class VolleyballMatch extends AbstractMatch {
             finish();
             return;
         }
-        currentSet++;
-        homeSetPoints = 0;
-        awaySetPoints = 0;
-        servingHome = currentSet % 2 == 1;
-        homeState.subsUsed = 0;
-        awayState.subsUsed = 0;
-        resetSetSubstitutionRules();
-        events.add(new MatchEvent(MatchEvent.Type.SET_START, getClockDisplay(), null, null, null,
-                I18n.f("ev.setStart", currentSet)));
+        waitingForNextSet = true;
     }
 
     private void resetSetSubstitutionRules() {

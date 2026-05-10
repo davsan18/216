@@ -47,4 +47,5 @@ public interface IMatch extends java.io.Serializable {
     boolean isPaused();
     default boolean isWaitingForSecondHalf() { return false; }
     default void startSecondHalf() {}
+    default String getResumeButtonLabel() { return I18n.t("mv.startSecondHalf"); }
 }

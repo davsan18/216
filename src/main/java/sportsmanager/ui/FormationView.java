@@ -216,54 +216,92 @@ final class FormationView {
 
     private static void placeVolley(Pane root, double w, double h, List<IPlayer> players, boolean leftHalf, Color color) {
         if (players == null || players.isEmpty()) return;
-        List<IPlayer> ordered = new ArrayList<>(players);
-        ordered.sort(Comparator.comparingInt(FormationView::volleyFrontPriority).reversed());
 
-        List<IPlayer> front = new ArrayList<>();
-        List<IPlayer> back = new ArrayList<>();
-        for (IPlayer p : ordered) {
-            if (front.size() < 3 && !isLibero(p)) front.add(p);
-            else back.add(p);
+        // Sort players into canonical volleyball roles
+        List<IPlayer> setters = new ArrayList<>();
+        List<IPlayer> opposites = new ArrayList<>();
+        List<IPlayer> outsides = new ArrayList<>();
+        List<IPlayer> middles = new ArrayList<>();
+        List<IPlayer> liberos = new ArrayList<>();
+        List<IPlayer> others = new ArrayList<>();
+        for (IPlayer p : players) {
+            String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
+            if (pos.contains("libero")) liberos.add(p);
+            else if (pos.contains("çapraz") || pos.contains("opposite") || pos.contains("karşı")) opposites.add(p);
+            else if (pos.contains("pasör") || pos.contains("setter")) setters.add(p);
+            else if (pos.contains("orta") || pos.contains("middle")) middles.add(p);
+            else if (pos.contains("smaç") || pos.contains("spiker")) outsides.add(p);
+            else others.add(p);
         }
-        while (front.size() < 3 && !back.isEmpty()) front.add(back.remove(0));
+
+        // Slots correspond to volleyball positions 1..6 (5-1 system layout):
+        //   1 = setter (back-right)        4 = opposite (front-left)
+        //   2 = outside hitter (front-rt)  5 = outside hitter (back-left)
+        //   3 = middle blocker (front-ctr) 6 = libero / 2nd middle (back-center)
+        IPlayer[] slots = new IPlayer[6];
+        if (!setters.isEmpty())   slots[0] = setters.remove(0);
+        if (!outsides.isEmpty())  slots[1] = outsides.remove(0);
+        if (!middles.isEmpty())   slots[2] = middles.remove(0);
+        if (!opposites.isEmpty()) slots[3] = opposites.remove(0);
+        if (!outsides.isEmpty())  slots[4] = outsides.remove(0);
+        if (!liberos.isEmpty())   slots[5] = liberos.remove(0);
+        else if (!middles.isEmpty()) slots[5] = middles.remove(0);
+
+        List<IPlayer> remaining = new ArrayList<>();
+        remaining.addAll(setters);
+        remaining.addAll(outsides);
+        remaining.addAll(middles);
+        remaining.addAll(opposites);
+        remaining.addAll(liberos);
+        remaining.addAll(others);
+        for (int i = 0; i < 6 && !remaining.isEmpty(); i++) {
+            if (slots[i] == null) slots[i] = remaining.remove(0);
+        }
 
         double frontX = leftHalf ? w * 0.40 : w * 0.60;
-        double backX = leftHalf ? w * 0.18 : w * 0.82;
-        placeVolleyColumn(root, w, h, front, frontX, color);
-        placeVolleyColumn(root, w, h, back, backX, color);
-    }
+        double backX  = leftHalf ? w * 0.18 : w * 0.82;
+        double topY = h * 0.25, midY = h * 0.50, botY = h * 0.75;
 
-    private static void placeVolleyColumn(Pane root, double w, double h,
-                                          List<IPlayer> players, double x, Color color) {
-        double[] rows = { h * 0.25, h * 0.50, h * 0.75 };
-        for (int i = 0; i < players.size() && i < 3; i++) {
-            root.getChildren().add(playerToken(players.get(i), x, rows[i], color, w, h));
+        // Map canonical positions to (x,y). Right side mirrors top<->bottom so each team's
+        // "back-right (pos 1)" sits closest to the visual bottom-back corner of its own half.
+        double[][] coords = leftHalf
+            ? new double[][] {
+                { backX,  botY },  // 1 back-right
+                { frontX, botY },  // 2 front-right
+                { frontX, midY },  // 3 front-center
+                { frontX, topY },  // 4 front-left
+                { backX,  topY },  // 5 back-left
+                { backX,  midY }   // 6 back-center
+              }
+            : new double[][] {
+                { backX,  topY },  // 1 back-right (mirrored)
+                { frontX, topY },  // 2 front-right
+                { frontX, midY },  // 3 front-center
+                { frontX, botY },  // 4 front-left
+                { backX,  botY },  // 5 back-left
+                { backX,  midY }   // 6 back-center
+              };
+
+        for (int i = 0; i < 6; i++) {
+            if (slots[i] == null) continue;
+            root.getChildren().add(playerToken(slots[i], coords[i][0], coords[i][1], color, w, h, true));
         }
-    }
-
-    private static int volleyFrontPriority(IPlayer p) {
-        String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
-        if (pos.contains("smaç") || pos.contains("spiker")) return 5;
-        if (pos.contains("çapraz") || pos.contains("karşı") || pos.contains("opposite")) return 4;
-        if (pos.contains("orta") || pos.contains("middle")) return 3;
-        if (pos.contains("pasör") || pos.contains("setter")) return 1;
-        if (pos.contains("libero")) return 0;
-        return 2;
-    }
-
-    private static boolean isLibero(IPlayer p) {
-        String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
-        return pos.contains("libero");
     }
 
     private static javafx.scene.Node playerToken(IPlayer p, double x, double y, Color color,
                                                 double boardWidth, double boardHeight) {
-        // Top badges row (goals, cards, sub-in) placed above the player dot.
+        return playerToken(p, x, y, color, boardWidth, boardHeight, false);
+    }
+
+    private static javafx.scene.Node playerToken(IPlayer p, double x, double y, Color color,
+                                                double boardWidth, double boardHeight, boolean compact) {
         HBox badges = new HBox(2);
         badges.setAlignment(Pos.CENTER);
         if (p.getGoalsThisMatch() > 0) {
-            String mins = String.join(",", p.getGoalMinutes());
-            String goalText = "⚽" + mins;
+            String icon = compact ? "🏐" : "⚽";
+            String goalText = compact
+                    ? icon + p.getGoalsThisMatch()
+                    : icon + String.join(",", p.getGoalMinutes());
             Label gl = new Label(goalText);
             gl.setStyle("-fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;"
                     + " -fx-background-color: rgba(0,0,0,0.65); -fx-padding: 1 5; -fx-background-radius: 6;");
@@ -278,10 +316,11 @@ final class FormationView {
 
         Circle dot = new Circle(12);
         dot.setFill(color);
-        Color stroke = p.hasRedCard() ? Color.web("#c0392b")
-                : (p.getYellowCards() > 0 ? Color.web("#f1c40f") : Color.WHITE);
+        boolean showCardOutline = !compact && (p.hasRedCard() || p.getYellowCards() > 0);
+        Color stroke = !compact && p.hasRedCard() ? Color.web("#c0392b")
+                : (!compact && p.getYellowCards() > 0 ? Color.web("#f1c40f") : Color.WHITE);
         dot.setStroke(stroke);
-        dot.setStrokeWidth(p.hasRedCard() || p.getYellowCards() > 0 ? 4 : 2);
+        dot.setStrokeWidth(showCardOutline ? 4 : 2);
         Label num = new Label(String.valueOf(p.getJerseyNumber() > 0 ? p.getJerseyNumber() : p.getSkillLevel()));
         num.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
         StackPane dotPane = new StackPane(dot, num);

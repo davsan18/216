@@ -45,8 +45,8 @@ final class FormationView {
         pr.setFill(Color.TRANSPARENT); pr.setStroke(line); pr.setStrokeWidth(2);
         root.getChildren().addAll(outer, mid, midC, pl, pr);
 
-        placeFootballSide(root, w, h, homeOnField, true,  Color.web("#e74c3c"));
-        placeFootballSide(root, w, h, awayOnField, false, Color.web("#3498db"));
+        placeFootballSide(root, w, h, homeOnField, true,  Color.web("#e74c3c"), home.getTactic());
+        placeFootballSide(root, w, h, awayOnField, false, Color.web("#3498db"), away.getTactic());
         root.getChildren().add(benchBox(homeBench, 12, 28, true));
         root.getChildren().add(benchBox(awayBench, w - 132, 28, false));
 
@@ -75,25 +75,94 @@ final class FormationView {
     }
 
     private static void placeFootballSide(Pane root, double w, double h, List<IPlayer> players,
-                                          boolean leftHalf, Color color) {
+                                          boolean leftHalf, Color color, String tactic) {
         if (players == null || players.isEmpty()) return;
-        List<IPlayer> gk = new ArrayList<>(), def = new ArrayList<>(), mid = new ArrayList<>(), fwd = new ArrayList<>();
+        List<IPlayer> gk = new ArrayList<>(), outfield = new ArrayList<>();
         for (IPlayer p : players) {
             String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
-            if (pos.contains("kale")) gk.add(p);
-            else if (pos.contains("defans") || pos.contains("bek") || pos.contains("stoper")) def.add(p);
-            else if (pos.contains("orta")) mid.add(p);
-            else if (pos.contains("forvet") || pos.contains("kanat") || pos.contains("santrafor")) fwd.add(p);
-            else mid.add(p);
+            if (pos.contains("kale") || pos.contains("goalkeeper") || pos.equals("gk")) gk.add(p);
+            else outfield.add(p);
         }
-        // X positions in normalized width
-        double[] xs = leftHalf
-                ? new double[] { 0.08, 0.22, 0.35, 0.47 }
-                : new double[] { 0.92, 0.78, 0.65, 0.53 };
-        placeRowF(root, w, h, gk,  xs[0], color);
-        placeRowF(root, w, h, def, xs[1], color);
-        placeRowF(root, w, h, mid, xs[2], color);
-        placeRowF(root, w, h, fwd, xs[3], color);
+        placeRowF(root, w, h, gk, leftHalf ? 0.08 : 0.92, color);
+
+        int[] rows = parseFormation(tactic);
+        int numRows = rows != null ? rows.length : 3;
+        double offset = disciplineOffset(tactic, leftHalf);
+        double[] xs = computeOutfieldXs(leftHalf, numRows, offset);
+
+        if (rows != null) {
+            outfield.sort(Comparator.comparingInt(FormationView::outfieldPositionOrder));
+            int cursor = 0;
+            for (int i = 0; i < rows.length && cursor < outfield.size(); i++) {
+                int count = Math.min(rows[i], outfield.size() - cursor);
+                placeRowF(root, w, h, outfield.subList(cursor, cursor + count), xs[i], color);
+                cursor += count;
+            }
+            if (cursor < outfield.size()) {
+                placeRowF(root, w, h, outfield.subList(cursor, outfield.size()), xs[xs.length - 1], color);
+            }
+        } else {
+            List<IPlayer> def = new ArrayList<>(), mid = new ArrayList<>(), fwd = new ArrayList<>();
+            for (IPlayer p : outfield) {
+                String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
+                if (pos.contains("defans") || pos.contains("bek") || pos.contains("stoper")) def.add(p);
+                else if (pos.contains("forvet") || pos.contains("kanat") || pos.contains("santrafor")) fwd.add(p);
+                else mid.add(p);
+            }
+            placeRowF(root, w, h, def, xs[0], color);
+            placeRowF(root, w, h, mid, xs[numRows / 2], color);
+            placeRowF(root, w, h, fwd, xs[numRows - 1], color);
+        }
+    }
+
+    private static double[] computeOutfieldXs(boolean leftHalf, int numRows, double offset) {
+        double start = leftHalf ? 0.20 : 0.80;
+        double end   = leftHalf ? 0.48 : 0.52;
+        double maxX  = leftHalf ? 0.48 : Double.MAX_VALUE;
+        double minX  = leftHalf ? Double.MIN_VALUE : 0.52;
+        double[] xs = new double[numRows];
+        if (numRows == 1) {
+            xs[0] = clampX((start + end) / 2.0 + offset, minX, maxX);
+            return xs;
+        }
+        for (int i = 0; i < numRows; i++) {
+            double t = (double) i / (numRows - 1);
+            xs[i] = clampX(start + t * (end - start) + offset, minX, maxX);
+        }
+        return xs;
+    }
+
+    private static double clampX(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static double disciplineOffset(String tactic, boolean leftHalf) {
+        if (tactic == null || !tactic.contains("/")) return 0;
+        String d = tactic.split("/")[1].trim().toLowerCase();
+        if (d.contains("attack") || d.contains("hücum")) return leftHalf ?  0.04 : -0.04;
+        if (d.contains("defensive") || d.contains("savun")) return leftHalf ? -0.04 :  0.04;
+        return 0;
+    }
+
+    private static int[] parseFormation(String tactic) {
+        if (tactic == null || tactic.isBlank()) return null;
+        String formation = tactic.contains("/") ? tactic.split("/")[0].trim() : tactic.trim();
+        String[] parts = formation.split("-");
+        if (parts.length < 2) return null;
+        try {
+            int[] result = new int[parts.length];
+            for (int i = 0; i < parts.length; i++) result[i] = Integer.parseInt(parts[i].trim());
+            return result;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static int outfieldPositionOrder(IPlayer p) {
+        String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
+        if (pos.contains("defans") || pos.contains("bek") || pos.contains("stoper")) return 0;
+        if (pos.contains("forvet") || pos.contains("kanat") || pos.contains("santrafor")) return 2;
+        return 1;
     }
 
     private static void placeRowF(Pane root, double w, double h, List<IPlayer> players, double xRatio, Color color) {

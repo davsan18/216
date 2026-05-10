@@ -103,6 +103,7 @@ public class MainApp extends Application {
     private ToggleGroup speedGroup;
     private Timeline matchTimeline;
     private boolean animateNextFormation;
+    private int lastSpeed = 1;
 
     @Override
     public void start(Stage stage) {
@@ -1128,8 +1129,8 @@ public class MainApp extends Application {
             currentMatch.startSecondHalf();
             secondHalfBtn.setVisible(false);
             refreshMatchView();
-            selectSpeed(1);
-            applySpeed(1);
+            selectSpeed(lastSpeed);
+            applySpeed(lastSpeed);
         });
         secondHalfBtn.setVisible(false);
 
@@ -1182,6 +1183,7 @@ public class MainApp extends Application {
             return;
         }
         if (pauseForSecondHalfIfNeeded()) return;
+        lastSpeed = rate;
         matchTimeline.setRate(rate);
         matchTimeline.play();
     }

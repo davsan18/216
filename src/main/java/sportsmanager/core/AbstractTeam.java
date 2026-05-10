@@ -7,7 +7,7 @@ public abstract class AbstractTeam implements ITeam {
     protected List<IPlayer> players;
     protected int points;
 
-    // YENİ ÖZELLİKLER
+    // Tactic and coach (coach may be null since the user is the coach)
     protected String tactic;
     protected ICoach coach;
 
@@ -15,16 +15,20 @@ public abstract class AbstractTeam implements ITeam {
         this.name = name;
         this.players = new ArrayList<>();
         this.points = 0;
-        this.tactic = "Standart"; // Varsayılan taktik
+        this.tactic = "Standard"; // Default tactic
     }
 
     @Override public String getName() { return name; }
     @Override public List<IPlayer> getPlayers() { return players; }
-    @Override public void addPlayer(IPlayer player) { this.players.add(player); }
+    @Override public void addPlayer(IPlayer player) {
+        if (player != null && player.getJerseyNumber() <= 0) {
+            player.setJerseyNumber(players.size() + 1);
+        }
+        this.players.add(player);
+    }
     @Override public int getPoints() { return points; }
     @Override public void addPoints(int points) { this.points += points; }
 
-    // YENİ METODLARIN UYGULANMASI
     @Override public void setTactic(String tactic) { this.tactic = tactic; }
     @Override public String getTactic() { return tactic; }
     @Override public void setCoach(ICoach coach) { this.coach = coach; }

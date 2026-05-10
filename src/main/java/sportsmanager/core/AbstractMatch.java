@@ -2,7 +2,7 @@ package sportsmanager.core;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -17,6 +17,7 @@ public abstract class AbstractMatch implements IMatch {
     protected boolean played = false;
     protected boolean started = false;
     protected ITeam winner = null;
+    protected String kickoffTime = "";
 
     protected List<MatchEvent> events = new ArrayList<>();
 
@@ -24,7 +25,7 @@ public abstract class AbstractMatch implements IMatch {
     protected TeamState awayState = new TeamState();
     protected ITeam userTeam;
 
-    /** Zorunlu sub bekleyen son oyuncu (sakatlık/kırmızı sonrası) — UI'da göstermek için. */
+    /** Last player removed by injury/red card who is awaiting a forced substitution (shown in UI dialog). */
     protected IPlayer homeLastForceRemoved;
     protected IPlayer awayLastForceRemoved;
 
@@ -44,6 +45,8 @@ public abstract class AbstractMatch implements IMatch {
     @Override public String getScore() { return homeScore + " - " + awayScore; }
     @Override public int getHomeScore() { return homeScore; }
     @Override public int getAwayScore() { return awayScore; }
+    @Override public String getKickoffTime() { return kickoffTime == null ? "" : kickoffTime; }
+    @Override public void setKickoffTime(String kickoffTime) { this.kickoffTime = kickoffTime == null ? "" : kickoffTime; }
 
     @Override public List<MatchEvent> getEvents() { return events; }
 
@@ -55,6 +58,11 @@ public abstract class AbstractMatch implements IMatch {
     @Override
     public List<IPlayer> getBench(ITeam team) {
         return new ArrayList<>(stateOf(team).bench);
+    }
+
+    @Override
+    public List<IPlayer> getRemoved(ITeam team) {
+        return new ArrayList<>(stateOf(team).removed);
     }
 
     @Override
@@ -95,28 +103,37 @@ public abstract class AbstractMatch implements IMatch {
         rand = new Random();
         setupLineup(homeTeam, homeState);
         setupLineup(awayTeam, awayState);
-        events.add(new MatchEvent(MatchEvent.Type.KICKOFF, getClockDisplay(),
-                null, null, null, getKickoffLabel() + " başladı: "
-                + homeTeam.getName() + " - " + awayTeam.getName()));
+        addKickoffEvent();
     }
+
+    /** Subclasses add their localized kickoff event. */
+    protected abstract void addKickoffEvent();
 
     protected void setupLineup(ITeam team, TeamState state) {
         state.onField.clear();
         state.bench.clear();
         state.removed.clear();
+        state.missing.clear();
+        state.suspended.clear();
         state.subsUsed = 0;
         state.pendingReplacements = 0;
         int starters = getStartingSize();
 
-        // Sakat oyuncuların maç başında %35 ihtimalle iyileşmesi
+        // Injured players have a 35% chance of healing before the next match
         java.util.List<IPlayer> healthy = new java.util.ArrayList<>();
         for (IPlayer p : team.getPlayers()) {
             p.resetMatchCards();
             if (p.isInjured() && Math.random() < 0.35) {
                 p.setInjured(false);
             }
-            if (!p.isInjured()) healthy.add(p);
-            else state.removed.add(p); // Sakat → bu maça çıkamaz
+            if (p.isSuspended()) {
+                state.suspended.add(p);
+                state.missing.add(p);
+            } else if (!p.isInjured()) {
+                healthy.add(p);
+            } else {
+                state.missing.add(p); // Still injured; cannot play this match
+            }
         }
         int idx = 0;
         for (IPlayer p : healthy) {
@@ -144,8 +161,20 @@ public abstract class AbstractMatch implements IMatch {
         s.subsUsed++;
         in.setSubInClock(getClockDisplay());
         events.add(new MatchEvent(MatchEvent.Type.SUBSTITUTION, getClockDisplay(),
-                team, out, in, "Değişiklik: " + out.getName() + " ↔ " + in.getName()
-                + " (" + team.getName() + ")"));
+                team, out, in,
+                I18n.f("ev.subSwap", out.getName(), in.getName(), team.getName())));
+        return true;
+    }
+
+    @Override
+    public boolean swapLineup(ITeam team, IPlayer out, IPlayer in) {
+        TeamState s = stateOf(team);
+        if (out == null || in == null) return false;
+        if (!s.onField.contains(out) || !s.bench.contains(in)) return false;
+        s.onField.remove(out);
+        s.bench.add(out);
+        s.bench.remove(in);
+        s.onField.add(in);
         return true;
     }
 
@@ -163,7 +192,8 @@ public abstract class AbstractMatch implements IMatch {
         if (team == homeTeam) homeLastForceRemoved = null;
         else awayLastForceRemoved = null;
         events.add(new MatchEvent(MatchEvent.Type.SUBSTITUTION, getClockDisplay(),
-                team, null, in, in.getName() + " oyuna girdi (" + team.getName() + ")"));
+                team, null, in,
+                I18n.f("ev.subIn", in.getName(), team.getName())));
         return true;
     }
 
@@ -188,13 +218,14 @@ public abstract class AbstractMatch implements IMatch {
     public List<MatchEvent> tickToEnd() {
         List<MatchEvent> all = new ArrayList<>();
         if (!started) start();
+        int safety = 10000;
         while (!played) {
             if (isPaused()) {
                 autoResolveSubs();
             }
             List<MatchEvent> chunk = tick(getAutoChunk());
             all.addAll(chunk);
-            if (chunk.isEmpty() && !played) break;
+            if (--safety <= 0) break;
         }
         return all;
     }
@@ -215,20 +246,28 @@ public abstract class AbstractMatch implements IMatch {
             replace(team, best);
         }
         if (s.pendingReplacements > 0) {
-            s.pendingReplacements = 0; // give up — play short-handed
+            s.pendingReplacements = 0; // give up and play short-handed
         }
     }
 
     protected int getAutoChunk() { return 10; }
 
-    protected abstract String getKickoffLabel();
+    protected void completeSuspensionService() {
+        for (IPlayer p : homeState.suspended) p.decrementSuspensionMatches();
+        for (IPlayer p : awayState.suspended) p.decrementSuspensionMatches();
+        homeState.suspended.clear();
+        awayState.suspended.clear();
+    }
+
     protected abstract void awardLeaguePoints();
 
     public static class TeamState implements Serializable {
         private static final long serialVersionUID = 1L;
-        public Set<IPlayer> onField = new HashSet<>();
-        public Set<IPlayer> bench = new HashSet<>();
-        public Set<IPlayer> removed = new HashSet<>();
+        public Set<IPlayer> onField = new LinkedHashSet<>();
+        public Set<IPlayer> bench = new LinkedHashSet<>();
+        public Set<IPlayer> removed = new LinkedHashSet<>();
+        public Set<IPlayer> missing = new LinkedHashSet<>();
+        public Set<IPlayer> suspended = new LinkedHashSet<>();
         public int subsUsed = 0;
         public int pendingReplacements = 0;
     }

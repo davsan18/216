@@ -18,6 +18,8 @@ public interface IMatch extends java.io.Serializable {
     boolean isFinished();
 
     String getClockDisplay();
+    String getKickoffTime();
+    void setKickoffTime(String kickoffTime);
     int getStartingSize();
     int getMaxSubs();
 
@@ -25,14 +27,16 @@ public interface IMatch extends java.io.Serializable {
 
     List<IPlayer> getOnField(ITeam team);
     List<IPlayer> getBench(ITeam team);
+    List<IPlayer> getRemoved(ITeam team);
     int getRemainingSubs(ITeam team);
     int getPendingReplacements(ITeam team);
     boolean needsSubstitution(ITeam team);
 
     boolean substitute(ITeam team, IPlayer out, IPlayer in);
+    boolean swapLineup(ITeam team, IPlayer out, IPlayer in);
     boolean replace(ITeam team, IPlayer in);
 
-    /** En son zorunlu sub bekleyen oyuncuyu döndürür (sakatlık/kırmızı sonrası). */
+    /** Returns the most recent player awaiting a forced substitution (after injury or red card). */
     IPlayer getLastForceRemoved(ITeam team);
 
     void setUserTeam(ITeam team);
@@ -41,4 +45,6 @@ public interface IMatch extends java.io.Serializable {
     List<MatchEvent> tick(int amount);
     List<MatchEvent> tickToEnd();
     boolean isPaused();
+    default boolean isWaitingForSecondHalf() { return false; }
+    default void startSecondHalf() {}
 }

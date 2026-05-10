@@ -1,13 +1,17 @@
 package sportsmanager.volleyball;
 
 import sportsmanager.core.AbstractMatch;
+import sportsmanager.core.I18n;
 import sportsmanager.core.IPlayer;
 import sportsmanager.core.ITeam;
 import sportsmanager.core.MatchEvent;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -21,6 +25,13 @@ public class VolleyballMatch extends AbstractMatch {
     private int currentSet = 1;
     private int homeSetPoints = 0;
     private int awaySetPoints = 0;
+    private boolean servingHome = true;
+    private Set<IPlayer> homeSetStarters = new HashSet<>();
+    private Set<IPlayer> awaySetStarters = new HashSet<>();
+    private Set<IPlayer> homeStartersUsedSub = new HashSet<>();
+    private Set<IPlayer> awayStartersUsedSub = new HashSet<>();
+    private Map<IPlayer, IPlayer> homeSubToStarter = new HashMap<>();
+    private Map<IPlayer, IPlayer> awaySubToStarter = new HashMap<>();
 
     public VolleyballMatch(ITeam home, ITeam away) {
         super(home, away);
@@ -33,13 +44,53 @@ public class VolleyballMatch extends AbstractMatch {
         if (played) return homeSetsWon + "-" + awaySetsWon + " (set)";
         return "S" + currentSet + " " + homeSetPoints + "-" + awaySetPoints;
     }
-    @Override protected String getKickoffLabel() { return "Set 1"; }
     @Override protected int getAutoChunk() { return 8; }
+
+    @Override
+    protected void addKickoffEvent() {
+        resetSetSubstitutionRules();
+        events.add(new MatchEvent(MatchEvent.Type.KICKOFF, getClockDisplay(),
+                null, null, null,
+                I18n.f("ev.kickoffVolley", homeTeam.getName(), awayTeam.getName())));
+    }
 
     @Override
     public void play() {
         if (!started) start();
         tickToEnd();
+    }
+
+    @Override
+    public boolean substitute(ITeam team, IPlayer out, IPlayer in) {
+        TeamState s = stateOf(team);
+        if (out == null || in == null) return false;
+        if (!s.onField.contains(out)) return false;
+        if (!s.bench.contains(in)) return false;
+        if (s.subsUsed >= getMaxSubs()) return false;
+
+        Set<IPlayer> starters = setStarters(team);
+        Set<IPlayer> startersUsed = startersUsedSub(team);
+        Map<IPlayer, IPlayer> subToStarter = subToStarter(team);
+        boolean outIsStarter = starters.contains(out);
+        if (outIsStarter) {
+            if (startersUsed.contains(out)) return false;
+            startersUsed.add(out);
+            subToStarter.put(in, out);
+        } else {
+            IPlayer pairedStarter = subToStarter.get(out);
+            if (pairedStarter == null || pairedStarter != in) return false;
+            subToStarter.remove(out);
+        }
+
+        replaceOnField(s, out, in);
+        s.bench.remove(in);
+        s.bench.add(out);
+        s.subsUsed++;
+        in.setSubInClock(getClockDisplay());
+        events.add(new MatchEvent(MatchEvent.Type.SUBSTITUTION, getClockDisplay(),
+                team, out, in,
+                I18n.f("ev.subSwap", out.getName(), in.getName(), team.getName())));
+        return true;
     }
 
     @Override
@@ -73,16 +124,14 @@ public class VolleyballMatch extends AbstractMatch {
             // Penalty: away gets the point
             awaySetPoints++;
             events.add(new MatchEvent(MatchEvent.Type.RED_CARD, getClockDisplay(), homeTeam, carded, null,
-                    "Kırmızı kart: " + carded.getName() + " (" + homeTeam.getName()
-                    + ") — rakip takıma ceza puanı"));
+                    I18n.f("ev.redPenaltyVolley", carded.getName(), homeTeam.getName())));
             return;
         }
         carded = maybeCard(awayTeam);
         if (carded != null && carded.hasRedCard()) {
             homeSetPoints++;
             events.add(new MatchEvent(MatchEvent.Type.RED_CARD, getClockDisplay(), awayTeam, carded, null,
-                    "Kırmızı kart: " + carded.getName() + " (" + awayTeam.getName()
-                    + ") — rakip takıma ceza puanı"));
+                    I18n.f("ev.redPenaltyVolley", carded.getName(), awayTeam.getName())));
             return;
         }
 
@@ -94,7 +143,7 @@ public class VolleyballMatch extends AbstractMatch {
                 IPlayer p = pickRandom(s.onField);
                 p.setInjured(true);
                 events.add(new MatchEvent(MatchEvent.Type.INJURY, getClockDisplay(), t, p, null,
-                        "SAKATLIK: " + p.getName() + " (" + t.getName() + ") oyundan çıkıyor"));
+                        I18n.f("ev.injury", p.getName(), t.getName())));
                 removeFromField(t, p, true);
             }
         }
@@ -102,25 +151,33 @@ public class VolleyballMatch extends AbstractMatch {
         // Decide who wins the rally
         homePoint = rand.nextDouble() < homeProb;
         if (homePoint) {
+            if (!servingHome) {
+                servingHome = true;
+                rotate(homeTeam);
+            }
             homeSetPoints++;
             IPlayer scorer = pickScorer(homeTeam);
             if (scorer != null) {
                 scorer.addGoalThisMatch(getClockDisplay());
                 events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), homeTeam, scorer, null,
-                        "Sayı: " + scorer.getName() + " (" + homeTeam.getName() + ")"));
+                        I18n.f("ev.scorePoint", scorer.getName(), homeTeam.getName())));
             }
         } else {
+            if (servingHome) {
+                servingHome = false;
+                rotate(awayTeam);
+            }
             awaySetPoints++;
             IPlayer scorer = pickScorer(awayTeam);
             if (scorer != null) {
                 scorer.addGoalThisMatch(getClockDisplay());
                 events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), awayTeam, scorer, null,
-                        "Sayı: " + scorer.getName() + " (" + awayTeam.getName() + ")"));
+                        I18n.f("ev.scorePoint", scorer.getName(), awayTeam.getName())));
             }
         }
     }
 
-    /** ~1.5% per team per rally. Returns the carded player (with red flag set if escalated). */
+    /** ~1.2% per team per rally. Returns the carded player (with red flag set if escalated). */
     private IPlayer maybeCard(ITeam team) {
         TeamState s = stateOf(team);
         if (s.onField.isEmpty()) return null;
@@ -130,11 +187,11 @@ public class VolleyballMatch extends AbstractMatch {
             if (p.getYellowCards() >= 2) {
                 p.giveRedCard();
                 events.add(new MatchEvent(MatchEvent.Type.YELLOW_CARD, getClockDisplay(), team, p, null,
-                        "İkinci sarı: " + p.getName()));
+                        I18n.f("ev.secondYellow", p.getName())));
                 return p;
             }
             events.add(new MatchEvent(MatchEvent.Type.YELLOW_CARD, getClockDisplay(), team, p, null,
-                    "Sarı kart: " + p.getName() + " (" + team.getName() + ") — uyarı"));
+                    I18n.f("ev.yellowWarnVolley", p.getName(), team.getName())));
         }
         return null;
     }
@@ -150,8 +207,7 @@ public class VolleyballMatch extends AbstractMatch {
         boolean homeWon = homeSetPoints > awaySetPoints;
         if (homeWon) homeSetsWon++; else awaySetsWon++;
         events.add(new MatchEvent(MatchEvent.Type.SET_END, getClockDisplay(), null, null, null,
-                "Set " + currentSet + " bitti: " + homeSetPoints + "-" + awaySetPoints
-                + "  (Setler: " + homeSetsWon + "-" + awaySetsWon + ")"));
+                I18n.f("ev.setEnd", currentSet, homeSetPoints, awaySetPoints, homeSetsWon, awaySetsWon)));
 
         if (homeSetsWon == SETS_TO_WIN || awaySetsWon == SETS_TO_WIN || currentSet == MAX_SETS) {
             finish();
@@ -160,8 +216,52 @@ public class VolleyballMatch extends AbstractMatch {
         currentSet++;
         homeSetPoints = 0;
         awaySetPoints = 0;
+        servingHome = currentSet % 2 == 1;
+        homeState.subsUsed = 0;
+        awayState.subsUsed = 0;
+        resetSetSubstitutionRules();
         events.add(new MatchEvent(MatchEvent.Type.SET_START, getClockDisplay(), null, null, null,
-                "Set " + currentSet + " başlıyor"));
+                I18n.f("ev.setStart", currentSet)));
+    }
+
+    private void resetSetSubstitutionRules() {
+        homeSetStarters = new HashSet<>(homeState.onField);
+        awaySetStarters = new HashSet<>(awayState.onField);
+        homeStartersUsedSub.clear();
+        awayStartersUsedSub.clear();
+        homeSubToStarter.clear();
+        awaySubToStarter.clear();
+    }
+
+    private Set<IPlayer> setStarters(ITeam team) {
+        return team == homeTeam ? homeSetStarters : awaySetStarters;
+    }
+
+    private Set<IPlayer> startersUsedSub(ITeam team) {
+        return team == homeTeam ? homeStartersUsedSub : awayStartersUsedSub;
+    }
+
+    private Map<IPlayer, IPlayer> subToStarter(ITeam team) {
+        return team == homeTeam ? homeSubToStarter : awaySubToStarter;
+    }
+
+    private void replaceOnField(TeamState s, IPlayer out, IPlayer in) {
+        List<IPlayer> order = new ArrayList<>(s.onField);
+        int idx = order.indexOf(out);
+        if (idx < 0) return;
+        order.set(idx, in);
+        s.onField.clear();
+        s.onField.addAll(order);
+    }
+
+    private void rotate(ITeam team) {
+        TeamState s = stateOf(team);
+        if (s.onField.size() < 2) return;
+        List<IPlayer> order = new ArrayList<>(s.onField);
+        IPlayer last = order.remove(order.size() - 1);
+        order.add(0, last);
+        s.onField.clear();
+        s.onField.addAll(order);
     }
 
     private void finish() {
@@ -171,9 +271,10 @@ public class VolleyballMatch extends AbstractMatch {
         if (homeSetsWon > awaySetsWon) winner = homeTeam;
         else winner = awayTeam;
         awardLeaguePoints();
+        completeSuspensionService();
         events.add(new MatchEvent(MatchEvent.Type.MATCH_END, getClockDisplay(), null, null, null,
-                "Maç bitti: " + homeTeam.getName() + " " + homeSetsWon + "-" + awaySetsWon + " "
-                + awayTeam.getName() + " — " + winner.getName() + " kazandı"));
+                I18n.f("ev.matchEnd", homeTeam.getName(), homeSetsWon, awaySetsWon,
+                        awayTeam.getName(), winner.getName())));
     }
 
     @Override
@@ -209,7 +310,7 @@ public class VolleyballMatch extends AbstractMatch {
     private IPlayer pickScorer(ITeam team) {
         TeamState s = stateOf(team);
         if (s.onField.isEmpty()) return null;
-        // Skill weighted; bonus for spikers (Smaçör/Pasör/Forvet)
+        // Skill weighted; bonus for attackers and setters.
         int total = 0;
         for (IPlayer p : s.onField) total += weight(p);
         if (total <= 0) return pickRandom(s.onField);
@@ -225,8 +326,9 @@ public class VolleyballMatch extends AbstractMatch {
     private int weight(IPlayer p) {
         int w = p.getSkillLevel();
         String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
-        if (pos.contains("smaç") || pos.contains("forvet")) w += 25;
-        else if (pos.contains("pasör")) w += 10;
+        if (pos.contains("smaç") || pos.contains("çapraz") || pos.contains("forvet") || pos.contains("spiker")) w += 25;
+        else if (pos.contains("orta")) w += 18;
+        else if (pos.contains("pasör") || pos.contains("setter")) w += 10;
         else if (pos.contains("libero")) w = Math.max(1, w - 30);
         return Math.max(1, w);
     }

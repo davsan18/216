@@ -6,6 +6,8 @@ public interface IPlayer extends java.io.Serializable {
     String getName();
     String getPosition();
     int getSkillLevel();
+    int getJerseyNumber();
+    void setJerseyNumber(int number);
 
     boolean isInjured();
     void setInjured(boolean injured);
@@ -15,6 +17,17 @@ public interface IPlayer extends java.io.Serializable {
     void addYellowCard();
     void giveRedCard();
     void resetMatchCards();
+
+    int getSeasonYellowCards();
+    void addSeasonYellowCard();
+    int getSeasonRedCards();
+    void addSeasonRedCard();
+    int getSeasonGoals();
+    void addSeasonGoal();
+    int getSuspensionMatches();
+    boolean isSuspended();
+    void addSuspensionMatches(int matches);
+    void decrementSuspensionMatches();
 
     /** Total goals scored in the current match. */
     int getGoalsThisMatch();

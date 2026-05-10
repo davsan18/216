@@ -9,7 +9,7 @@ public interface ITeam extends java.io.Serializable {
     void addPoints(int points);
     int getOverallSkill();
 
-    // YENİ: M3 Eksikleri
+    // Tactic / coach / mid-game substitution APIs
     void setTactic(String tactic);
     String getTactic();
     void setCoach(ICoach coach);

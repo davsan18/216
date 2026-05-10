@@ -31,7 +31,7 @@ final class Squads {
     static int coachBonus(String team) { return COACH_BONUS.getOrDefault(team, 5); }
 
     static {
-        // Stadyumlar
+        // Stadiums
         STADIUMS.put("Galatasaray", "Rams Park");
         STADIUMS.put("Fenerbahçe", "Şükrü Saracoğlu");
         STADIUMS.put("Beşiktaş", "Tüpraş Stadyumu");
@@ -45,14 +45,14 @@ final class Squads {
         STADIUMS.put("Ziraat Bankkart", "TVF Başkent Salonu");
         STADIUMS.put("Vakıfbank", "Vakıfbank Spor Sarayı");
 
-        // Teknik Direktörler (futbol)
+        // Football coaches
         COACHES.put("Galatasaray", "Okan Buruk");      COACH_BONUS.put("Galatasaray", 10);
         COACHES.put("Fenerbahçe", "İsmail Kartal");    COACH_BONUS.put("Fenerbahçe", 9);
         COACHES.put("Beşiktaş", "Fernando Santos");    COACH_BONUS.put("Beşiktaş", 8);
         COACHES.put("Trabzonspor", "Abdullah Avcı");   COACH_BONUS.put("Trabzonspor", 9);
         COACHES.put("Başakşehir", "Çağdaş Atan");      COACH_BONUS.put("Başakşehir", 7);
         COACHES.put("Konyaspor", "Ali Çamdalı");       COACH_BONUS.put("Konyaspor", 6);
-        // Teknik Direktörler (voleybol)
+        // Volleyball coaches
         COACHES.put("Galatasaray HDI", "Bülent Karslıoğlu"); COACH_BONUS.put("Galatasaray HDI", 9);
         COACHES.put("Fenerbahçe Medicana", "Marcello Abbondanza"); COACH_BONUS.put("Fenerbahçe Medicana", 10);
         COACHES.put("Beşiktaş Akatel", "Cesar Hernandez"); COACH_BONUS.put("Beşiktaş Akatel", 7);
@@ -60,7 +60,7 @@ final class Squads {
         COACHES.put("Ziraat Bankkart", "Ferhat Akbaş"); COACH_BONUS.put("Ziraat Bankkart", 7);
         COACHES.put("Vakıfbank", "Giovanni Guidetti"); COACH_BONUS.put("Vakıfbank", 10);
 
-        // 18 oyuncu / takım: 1 K + 5 D + 5 OS + 3 F + 4 yedek
+        // 18 players per team: 1 GK + 5 defenders + 5 midfielders + 3 forwards + 4 reserves
         FOOTBALL_ROSTERS.put("Galatasaray", new String[][] {
                 {"Muslera","Kaleci","85"},
                 {"Sanchez","Defans","86"},
@@ -182,89 +182,89 @@ final class Squads {
                 {"Yatabaré","Orta Saha","72"},
         });
 
-        // 12 oyuncu / takım: 6 starter + 6 yedek
+        // 12 players per team: 6 starters + 6 reserves
         VOLLEYBALL_ROSTERS.put("Galatasaray HDI", new String[][] {
                 {"Naz","Pasör","85"},
                 {"Karakurt","Smaçör","92"},
                 {"Buse","Smaçör","83"},
-                {"Cansu","Orta","82"},
-                {"Eda","Orta","81"},
-                {"Ayça","Karşı","84"},
+                {"Cansu","Orta Oyuncu","82"},
+                {"Eda","Orta Oyuncu","81"},
+                {"Ayça","Pasör Çaprazı","84"},
                 {"İlkin","Libero","78"},
                 {"Meryem","Smaçör","76"},
-                {"Hande","Orta","74"},
+                {"Hande","Orta Oyuncu","74"},
                 {"Sıla","Pasör","73"},
-                {"Selin","Karşı","75"},
+                {"Selin","Pasör Çaprazı","75"},
                 {"Burcu","Libero","72"},
         });
         VOLLEYBALL_ROSTERS.put("Fenerbahçe Medicana", new String[][] {
                 {"Cansu Ö.","Pasör","84"},
                 {"Vargas","Smaçör","92"},
                 {"Arina","Smaçör","87"},
-                {"Eda E.","Orta","82"},
-                {"Zehra","Orta","80"},
-                {"Melissa","Karşı","85"},
+                {"Eda E.","Orta Oyuncu","82"},
+                {"Zehra","Orta Oyuncu","80"},
+                {"Melissa","Pasör Çaprazı","85"},
                 {"Simge","Libero","79"},
                 {"Tijana","Smaçör","78"},
-                {"Berfu","Orta","73"},
+                {"Berfu","Orta Oyuncu","73"},
                 {"Yasemin","Pasör","72"},
-                {"Sude","Karşı","74"},
+                {"Sude","Pasör Çaprazı","74"},
                 {"Merve","Libero","71"},
         });
         VOLLEYBALL_ROSTERS.put("Beşiktaş Akatel", new String[][] {
                 {"Aslı","Pasör","80"},
                 {"Tess","Smaçör","83"},
                 {"Mihriban","Smaçör","78"},
-                {"Beyza","Orta","79"},
-                {"Saliha","Orta","77"},
-                {"Tatiana","Karşı","82"},
+                {"Beyza","Orta Oyuncu","79"},
+                {"Saliha","Orta Oyuncu","77"},
+                {"Tatiana","Pasör Çaprazı","82"},
                 {"Beyzanur","Libero","76"},
                 {"Berra","Smaçör","73"},
-                {"Gizem","Orta","71"},
+                {"Gizem","Orta Oyuncu","71"},
                 {"İrem","Pasör","70"},
-                {"Ecem","Karşı","72"},
+                {"Ecem","Pasör Çaprazı","72"},
                 {"Damla","Libero","69"},
         });
         VOLLEYBALL_ROSTERS.put("Halkbank Ankara", new String[][] {
                 {"Murat","Pasör","82"},
                 {"Adis","Smaçör","85"},
                 {"Earvin","Smaçör","87"},
-                {"Selim","Orta","80"},
-                {"Volkan","Orta","79"},
-                {"Burutay","Karşı","83"},
+                {"Selim","Orta Oyuncu","80"},
+                {"Volkan","Orta Oyuncu","79"},
+                {"Burutay","Pasör Çaprazı","83"},
                 {"Eren","Libero","77"},
                 {"Yiğit","Smaçör","75"},
-                {"Bedirhan","Orta","73"},
+                {"Bedirhan","Orta Oyuncu","73"},
                 {"Onur","Pasör","71"},
-                {"Berkay","Karşı","73"},
+                {"Berkay","Pasör Çaprazı","73"},
                 {"Mert","Libero","70"},
         });
         VOLLEYBALL_ROSTERS.put("Ziraat Bankkart", new String[][] {
                 {"Arslan","Pasör","78"},
                 {"Cebecioğlu","Smaçör","82"},
                 {"Plotnytski","Smaçör","83"},
-                {"Mert","Orta","79"},
-                {"Berkay","Orta","77"},
-                {"Yiğit","Karşı","80"},
+                {"Mert","Orta Oyuncu","79"},
+                {"Berkay","Orta Oyuncu","77"},
+                {"Yiğit","Pasör Çaprazı","80"},
                 {"Hakan","Libero","74"},
                 {"Doğukan","Smaçör","72"},
-                {"Caner","Orta","71"},
+                {"Caner","Orta Oyuncu","71"},
                 {"Tolga","Pasör","69"},
-                {"Hüseyin","Karşı","70"},
+                {"Hüseyin","Pasör Çaprazı","70"},
                 {"Furkan","Libero","68"},
         });
         VOLLEYBALL_ROSTERS.put("Vakıfbank", new String[][] {
                 {"Foluke","Pasör","83"},
                 {"Boskovic","Smaçör","91"},
                 {"Gabi","Smaçör","86"},
-                {"Akman","Orta","81"},
-                {"Cansu","Orta","80"},
-                {"Çiçek","Karşı","84"},
+                {"Akman","Orta Oyuncu","81"},
+                {"Cansu","Orta Oyuncu","80"},
+                {"Çiçek","Pasör Çaprazı","84"},
                 {"Aydın","Libero","78"},
                 {"Pelin","Smaçör","75"},
-                {"Tuğba","Orta","73"},
+                {"Tuğba","Orta Oyuncu","73"},
                 {"Bahar","Pasör","72"},
-                {"Gizem","Karşı","74"},
+                {"Gizem","Pasör Çaprazı","74"},
                 {"Buse","Libero","71"},
         });
     }
@@ -279,3 +279,4 @@ final class Squads {
         }
     }
 }
+

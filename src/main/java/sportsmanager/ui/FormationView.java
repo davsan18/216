@@ -10,10 +10,12 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
+import sportsmanager.core.I18n;
 import sportsmanager.core.IPlayer;
 import sportsmanager.core.ITeam;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /** Renders both teams' starting line-ups on a small pitch / court. */
@@ -22,7 +24,8 @@ final class FormationView {
     private FormationView() {}
 
     static Pane footballPitch(double w, double h, ITeam home, ITeam away,
-                              List<IPlayer> homeOnField, List<IPlayer> awayOnField) {
+                              List<IPlayer> homeOnField, List<IPlayer> awayOnField,
+                              List<IPlayer> homeBench, List<IPlayer> awayBench) {
         Pane root = new Pane();
         root.setPrefSize(w, h);
         root.setMinSize(w, h);
@@ -44,17 +47,26 @@ final class FormationView {
 
         placeFootballSide(root, w, h, homeOnField, true,  Color.web("#e74c3c"));
         placeFootballSide(root, w, h, awayOnField, false, Color.web("#3498db"));
+        root.getChildren().add(benchBox(homeBench, 12, 28, true));
+        root.getChildren().add(benchBox(awayBench, w - 132, 28, false));
 
         Label hLabel = new Label(home.getName());
         hLabel.setLayoutX(12); hLabel.setLayoutY(h - 22);
+        hLabel.setPrefWidth(180);
         hLabel.setStyle(teamLabelStyle());
         Label aLabel = new Label(away.getName());
-        aLabel.setLayoutX(w - 12 - 140); aLabel.setLayoutY(h - 22);
+        aLabel.setLayoutX(w - 12 - 180); aLabel.setLayoutY(h - 22);
+        aLabel.setPrefWidth(180);
         aLabel.setAlignment(Pos.CENTER_RIGHT);
         aLabel.setStyle(teamLabelStyle());
         root.getChildren().addAll(hLabel, aLabel);
 
         return root;
+    }
+
+    static Pane footballPitch(double w, double h, ITeam home, ITeam away,
+                              List<IPlayer> homeOnField, List<IPlayer> awayOnField) {
+        return footballPitch(w, h, home, away, homeOnField, awayOnField, new ArrayList<>(), new ArrayList<>());
     }
 
     private static String teamLabelStyle() {
@@ -76,8 +88,8 @@ final class FormationView {
         }
         // X positions in normalized width
         double[] xs = leftHalf
-                ? new double[] { 0.05, 0.20, 0.35, 0.45 }
-                : new double[] { 0.95, 0.80, 0.65, 0.55 };
+                ? new double[] { 0.08, 0.22, 0.35, 0.47 }
+                : new double[] { 0.92, 0.78, 0.65, 0.53 };
         placeRowF(root, w, h, gk,  xs[0], color);
         placeRowF(root, w, h, def, xs[1], color);
         placeRowF(root, w, h, mid, xs[2], color);
@@ -92,7 +104,7 @@ final class FormationView {
         for (int i = 0; i < n; i++) {
             double x = w * xRatio;
             double y = h * (topMargin + range * (i + 0.5) / n);
-            root.getChildren().add(playerToken(players.get(i), x, y, color));
+            root.getChildren().add(playerToken(players.get(i), x, y, color, w, h));
         }
     }
 
@@ -121,9 +133,12 @@ final class FormationView {
 
         Label hLabel = new Label(home.getName());
         hLabel.setLayoutX(12); hLabel.setLayoutY(h - 22);
+        hLabel.setPrefWidth(180);
         hLabel.setStyle(teamLabelStyle());
         Label aLabel = new Label(away.getName());
-        aLabel.setLayoutX(w - 12 - 140); aLabel.setLayoutY(h - 22);
+        aLabel.setLayoutX(w - 12 - 180); aLabel.setLayoutY(h - 22);
+        aLabel.setPrefWidth(180);
+        aLabel.setAlignment(Pos.CENTER_RIGHT);
         aLabel.setStyle(teamLabelStyle());
         root.getChildren().addAll(hLabel, aLabel);
 
@@ -132,19 +147,49 @@ final class FormationView {
 
     private static void placeVolley(Pane root, double w, double h, List<IPlayer> players, boolean leftHalf, Color color) {
         if (players == null || players.isEmpty()) return;
-        double[] cols = leftHalf
-                ? new double[] { w * 0.18, w * 0.36 }
-                : new double[] { w * 0.82, w * 0.64 };
+        List<IPlayer> ordered = new ArrayList<>(players);
+        ordered.sort(Comparator.comparingInt(FormationView::volleyFrontPriority).reversed());
+
+        List<IPlayer> front = new ArrayList<>();
+        List<IPlayer> back = new ArrayList<>();
+        for (IPlayer p : ordered) {
+            if (front.size() < 3 && !isLibero(p)) front.add(p);
+            else back.add(p);
+        }
+        while (front.size() < 3 && !back.isEmpty()) front.add(back.remove(0));
+
+        double frontX = leftHalf ? w * 0.40 : w * 0.60;
+        double backX = leftHalf ? w * 0.18 : w * 0.82;
+        placeVolleyColumn(root, w, h, front, frontX, color);
+        placeVolleyColumn(root, w, h, back, backX, color);
+    }
+
+    private static void placeVolleyColumn(Pane root, double w, double h,
+                                          List<IPlayer> players, double x, Color color) {
         double[] rows = { h * 0.25, h * 0.50, h * 0.75 };
-        for (int i = 0; i < players.size() && i < 6; i++) {
-            double x = cols[i / 3];
-            double y = rows[i % 3];
-            root.getChildren().add(playerToken(players.get(i), x, y, color));
+        for (int i = 0; i < players.size() && i < 3; i++) {
+            root.getChildren().add(playerToken(players.get(i), x, rows[i], color, w, h));
         }
     }
 
-    private static javafx.scene.Node playerToken(IPlayer p, double x, double y, Color color) {
-        // Top badges row (goals, cards, sub-in) — placed above the player dot
+    private static int volleyFrontPriority(IPlayer p) {
+        String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
+        if (pos.contains("smaç") || pos.contains("spiker")) return 5;
+        if (pos.contains("çapraz") || pos.contains("karşı") || pos.contains("opposite")) return 4;
+        if (pos.contains("orta") || pos.contains("middle")) return 3;
+        if (pos.contains("pasör") || pos.contains("setter")) return 1;
+        if (pos.contains("libero")) return 0;
+        return 2;
+    }
+
+    private static boolean isLibero(IPlayer p) {
+        String pos = p.getPosition() == null ? "" : p.getPosition().toLowerCase();
+        return pos.contains("libero");
+    }
+
+    private static javafx.scene.Node playerToken(IPlayer p, double x, double y, Color color,
+                                                double boardWidth, double boardHeight) {
+        // Top badges row (goals, cards, sub-in) placed above the player dot.
         HBox badges = new HBox(2);
         badges.setAlignment(Pos.CENTER);
         if (p.getGoalsThisMatch() > 0) {
@@ -155,15 +200,6 @@ final class FormationView {
                     + " -fx-background-color: rgba(0,0,0,0.65); -fx-padding: 1 5; -fx-background-radius: 6;");
             badges.getChildren().add(gl);
         }
-        if (p.hasRedCard()) {
-            Label l = new Label("🟥");
-            l.setStyle("-fx-font-size: 11px;");
-            badges.getChildren().add(l);
-        } else if (p.getYellowCards() > 0) {
-            Label l = new Label(p.getYellowCards() == 2 ? "🟨🟨" : "🟨");
-            l.setStyle("-fx-font-size: 11px;");
-            badges.getChildren().add(l);
-        }
         if (p.getSubInClock() != null) {
             Label l = new Label("🔁" + p.getSubInClock());
             l.setStyle("-fx-text-fill: white; -fx-font-size: 9px; -fx-font-weight: bold;"
@@ -171,25 +207,83 @@ final class FormationView {
             badges.getChildren().add(l);
         }
 
-        Circle dot = new Circle(14);
+        Circle dot = new Circle(12);
         dot.setFill(color);
-        dot.setStroke(Color.WHITE);
-        dot.setStrokeWidth(2);
-        Label num = new Label(String.valueOf(p.getSkillLevel()));
-        num.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+        Color stroke = p.hasRedCard() ? Color.web("#c0392b")
+                : (p.getYellowCards() > 0 ? Color.web("#f1c40f") : Color.WHITE);
+        dot.setStroke(stroke);
+        dot.setStrokeWidth(p.hasRedCard() || p.getYellowCards() > 0 ? 4 : 2);
+        Label num = new Label(String.valueOf(p.getJerseyNumber() > 0 ? p.getJerseyNumber() : p.getSkillLevel()));
+        num.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
         StackPane dotPane = new StackPane(dot, num);
 
         Label name = new Label(p.getName());
-        name.setStyle("-fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;"
+        name.setMaxWidth(86);
+        name.setAlignment(Pos.CENTER);
+        name.setWrapText(true);
+        name.setStyle("-fx-text-fill: white; -fx-font-size: 9px; -fx-font-weight: bold;"
                 + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.95), 4, 0, 0, 1);");
 
         VBox col = new VBox(1, badges, dotPane, name);
         col.setAlignment(Pos.CENTER);
         // IMPORTANT: layoutX/Y must be set on the Node returned (which is the child of the parent Pane).
-        col.setLayoutX(x - 45);
-        col.setLayoutY(y - 30);
-        col.setPrefSize(90, 64);
+        double tokenW = 90;
+        double tokenH = 58;
+        col.setLayoutX(clamp(x - tokenW / 2.0, 4, boardWidth - tokenW - 4));
+        col.setLayoutY(clamp(y - tokenH / 2.0, 4, boardHeight - tokenH - 28));
+        col.setPrefSize(tokenW, tokenH);
         col.setMouseTransparent(true);
         return col;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        if (max < min) return min;
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
+
+    private static VBox benchBox(List<IPlayer> bench, double x, double y, boolean left) {
+        List<IPlayer> orderedBench = orderedFootballBench(bench);
+        VBox box = new VBox(2);
+        box.setLayoutX(x);
+        box.setLayoutY(y);
+        box.setPrefWidth(120);
+        box.setMaxWidth(120);
+        box.setStyle("-fx-background-color: rgba(0,0,0,0.48); -fx-background-radius: 8;"
+                + " -fx-padding: 5; -fx-border-color: rgba(255,255,255,0.35); -fx-border-radius: 8;");
+        Label title = new Label(I18n.t("mv.bench"));
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;");
+        box.getChildren().add(title);
+        int limit = Math.min(orderedBench.size(), 7);
+        for (int i = 0; i < limit; i++) {
+            IPlayer p = orderedBench.get(i);
+            Label l = new Label("#" + p.getJerseyNumber() + " " + p.getName());
+            l.setMaxWidth(110);
+            l.setAlignment(left ? Pos.CENTER_LEFT : Pos.CENTER_RIGHT);
+            l.setStyle("-fx-text-fill: #ecf0f1; -fx-font-size: 9px; -fx-font-weight: bold;");
+            box.getChildren().add(l);
+        }
+        return box;
+    }
+
+    private static List<IPlayer> orderedFootballBench(List<IPlayer> bench) {
+        List<IPlayer> ordered = new ArrayList<>(bench == null ? List.of() : bench);
+        ordered.sort(Comparator
+                .comparingInt(FormationView::footballPositionOrder)
+                .thenComparingInt(IPlayer::getJerseyNumber)
+                .thenComparing(IPlayer::getName));
+        return ordered;
+    }
+
+    private static int footballPositionOrder(IPlayer player) {
+        String pos = player.getPosition() == null ? "" : player.getPosition().toLowerCase();
+        if (pos.contains("kale") || pos.contains("goalkeeper") || pos.equals("gk")) return 0;
+        if (pos.contains("defans") || pos.contains("bek") || pos.contains("stoper")
+                || pos.contains("defender")) return 1;
+        if (pos.contains("orta") || pos.contains("midfield")) return 2;
+        if (pos.contains("forvet") || pos.contains("kanat") || pos.contains("santrafor")
+                || pos.contains("forward") || pos.contains("striker")) return 3;
+        return 4;
     }
 }

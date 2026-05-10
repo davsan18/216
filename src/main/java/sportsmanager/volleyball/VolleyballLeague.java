@@ -16,21 +16,11 @@ public class VolleyballLeague extends AbstractLeague {
      *  with home/away cluster fixup so no team has 3+ consecutive home or away games. */
     @Override
     public void scheduleMatches() {
+        scheduledMatches.clear();
         List<IMatch> leg1 = buildLeg(false);
         List<IMatch> leg2 = buildLeg(true);
         int matchesPerRound = Math.max(1, teams.size() / 2);
-        int rounds = leg1.size() / matchesPerRound;
-        int shift = rounds / 2;
-        for (int r = 0; r < rounds; r++) {
-            int from = r * matchesPerRound;
-            int to = from + matchesPerRound;
-            for (int i = from; i < to; i++) scheduledMatches.add(leg1.get(i));
-            int srcRound = (r + shift) % rounds;
-            int from2 = srcRound * matchesPerRound;
-            int to2 = from2 + matchesPerRound;
-            for (int i = from2; i < to2; i++) scheduledMatches.add(leg2.get(i));
-        }
-        fixupHomeAwayClusters();
+        scheduleBalancedDoubleRoundRobin(leg1, leg2, matchesPerRound);
     }
 
     @Override

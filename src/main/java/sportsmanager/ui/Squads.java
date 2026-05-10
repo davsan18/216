@@ -6,27 +6,32 @@ import sportsmanager.core.ITeam;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Hard-coded rosters per team for both sports. Keeps MainApp lean. */
+/** Hard-coded rosters per team. First N entries become starters. */
 final class Squads {
 
     private Squads() {}
 
-    /** Each row: {name, position, skillLevel} — first 11 (football) or 6 (volleyball) become starters. */
     static final Map<String, String[][]> FOOTBALL_ROSTERS = new HashMap<>();
     static final Map<String, String[][]> VOLLEYBALL_ROSTERS = new HashMap<>();
 
-    static final String[] FOOTBALL_TEAMS = { "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor" };
+    static final String[] FOOTBALL_TEAMS = {
+            "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor",
+            "Başakşehir", "Konyaspor"
+    };
     static final String[] VOLLEYBALL_TEAMS = {
-            "Galatasaray HDI", "Fenerbahçe Medicana", "Beşiktaş Akatel", "Halkbank Ankara"
+            "Galatasaray HDI", "Fenerbahçe Medicana", "Beşiktaş Akatel",
+            "Halkbank Ankara", "Ziraat Bankkart", "Vakıfbank"
     };
 
     static {
+        // 18 oyuncu / takım: 1 K + 5 D + 5 OS + 3 F + 4 yedek
         FOOTBALL_ROSTERS.put("Galatasaray", new String[][] {
-                {"Muslera","Kaleci","82"},
-                {"Sanchez","Defans","85"},
+                {"Muslera","Kaleci","85"},
+                {"Sanchez","Defans","86"},
                 {"Bardakcı","Defans","82"},
                 {"Boey","Defans","81"},
                 {"Angeliño","Defans","83"},
+                {"Nelsson","Defans","79"},
                 {"Torreira","Orta Saha","85"},
                 {"Demirbay","Orta Saha","82"},
                 {"Mertens","Orta Saha","84"},
@@ -36,6 +41,9 @@ final class Squads {
                 {"Bakambu","Forvet","78"},
                 {"Akgün","Orta Saha","80"},
                 {"Lemina","Orta Saha","81"},
+                {"Çakır","Kaleci","74"},
+                {"Tetê","Forvet","82"},
+                {"Köhn","Defans","76"},
         });
         FOOTBALL_ROSTERS.put("Fenerbahçe", new String[][] {
                 {"Livakovic","Kaleci","83"},
@@ -43,15 +51,19 @@ final class Squads {
                 {"Becao","Defans","82"},
                 {"Osayi","Defans","80"},
                 {"Ferdi","Defans","79"},
+                {"Söyüncü","Defans","80"},
                 {"Tadic","Orta Saha","85"},
                 {"Fred","Orta Saha","82"},
                 {"Krunic","Orta Saha","81"},
                 {"Szymanski","Orta Saha","82"},
                 {"Dzeko","Forvet","88"},
                 {"En-Nesyri","Forvet","85"},
+                {"Tisserand","Defans","75"},
                 {"Kahveci","Orta Saha","79"},
                 {"Mert Hakan","Orta Saha","77"},
                 {"Kadıoğlu","Defans","80"},
+                {"Bayındır","Kaleci","73"},
+                {"Yandaş","Forvet","74"},
         });
         FOOTBALL_ROSTERS.put("Beşiktaş", new String[][] {
                 {"Mert Günok","Kaleci","81"},
@@ -59,6 +71,7 @@ final class Squads {
                 {"Saiss","Defans","81"},
                 {"Mustafi","Defans","79"},
                 {"Onur","Defans","78"},
+                {"Paulista","Defans","77"},
                 {"Salih","Orta Saha","80"},
                 {"Ndidi","Orta Saha","82"},
                 {"Rashica","Orta Saha","80"},
@@ -68,6 +81,9 @@ final class Squads {
                 {"Topal","Orta Saha","75"},
                 {"Zaynutdinov","Orta Saha","76"},
                 {"Hakan Arslan","Defans","75"},
+                {"Ersin","Kaleci","74"},
+                {"Al Musrati","Orta Saha","78"},
+                {"Aboubakar","Forvet","79"},
         });
         FOOTBALL_ROSTERS.put("Trabzonspor", new String[][] {
                 {"Uğurcan","Kaleci","83"},
@@ -75,6 +91,7 @@ final class Squads {
                 {"Bartra","Defans","81"},
                 {"Hüseyin","Defans","78"},
                 {"Pınar","Defans","77"},
+                {"Stefano","Defans","75"},
                 {"Bouchalakis","Orta Saha","79"},
                 {"Visca","Orta Saha","80"},
                 {"Kanga","Orta Saha","79"},
@@ -84,11 +101,55 @@ final class Squads {
                 {"Doğacan","Orta Saha","75"},
                 {"Trezeguet","Orta Saha","78"},
                 {"Pepe","Defans","76"},
+                {"Çakır","Kaleci","73"},
+                {"Eren","Forvet","74"},
+                {"Fofana","Orta Saha","76"},
+        });
+        FOOTBALL_ROSTERS.put("Başakşehir", new String[][] {
+                {"Volkan B.","Kaleci","78"},
+                {"Hasic","Defans","76"},
+                {"Duarte","Defans","79"},
+                {"Opoku","Defans","75"},
+                {"Ali Şaşal","Defans","74"},
+                {"Bertolacci","Orta Saha","77"},
+                {"Tekdemir","Orta Saha","78"},
+                {"Crivelli","Forvet","80"},
+                {"Selke","Forvet","78"},
+                {"Gürler","Orta Saha","75"},
+                {"Adekanye","Forvet","76"},
+                {"Şengezer","Defans","73"},
+                {"Çolak","Orta Saha","73"},
+                {"Türüç","Orta Saha","74"},
+                {"Edomwonyi","Forvet","75"},
+                {"Babacan","Kaleci","70"},
+                {"Bajic","Orta Saha","72"},
+                {"Ömer","Defans","70"},
+        });
+        FOOTBALL_ROSTERS.put("Konyaspor", new String[][] {
+                {"Bahadır","Kaleci","75"},
+                {"Skubic","Defans","76"},
+                {"Yasir","Defans","73"},
+                {"Calusic","Defans","75"},
+                {"Bytyqi","Defans","74"},
+                {"Dimata","Forvet","78"},
+                {"Sokol","Orta Saha","74"},
+                {"Hadziahmetovic","Orta Saha","76"},
+                {"Knapik","Orta Saha","73"},
+                {"Bajic","Forvet","75"},
+                {"Endo","Orta Saha","72"},
+                {"Ndao","Forvet","73"},
+                {"Kravets","Forvet","72"},
+                {"Asan","Defans","71"},
+                {"Boyalı","Orta Saha","70"},
+                {"Kerem","Kaleci","69"},
+                {"Marko","Defans","70"},
+                {"Yatabaré","Orta Saha","72"},
         });
 
+        // 12 oyuncu / takım: 6 starter + 6 yedek
         VOLLEYBALL_ROSTERS.put("Galatasaray HDI", new String[][] {
                 {"Naz","Pasör","85"},
-                {"Karakurt","Smaçör","90"},
+                {"Karakurt","Smaçör","92"},
                 {"Buse","Smaçör","83"},
                 {"Cansu","Orta","82"},
                 {"Eda","Orta","81"},
@@ -96,6 +157,9 @@ final class Squads {
                 {"İlkin","Libero","78"},
                 {"Meryem","Smaçör","76"},
                 {"Hande","Orta","74"},
+                {"Sıla","Pasör","73"},
+                {"Selin","Karşı","75"},
+                {"Burcu","Libero","72"},
         });
         VOLLEYBALL_ROSTERS.put("Fenerbahçe Medicana", new String[][] {
                 {"Cansu Ö.","Pasör","84"},
@@ -107,6 +171,9 @@ final class Squads {
                 {"Simge","Libero","79"},
                 {"Tijana","Smaçör","78"},
                 {"Berfu","Orta","73"},
+                {"Yasemin","Pasör","72"},
+                {"Sude","Karşı","74"},
+                {"Merve","Libero","71"},
         });
         VOLLEYBALL_ROSTERS.put("Beşiktaş Akatel", new String[][] {
                 {"Aslı","Pasör","80"},
@@ -118,6 +185,9 @@ final class Squads {
                 {"Beyzanur","Libero","76"},
                 {"Berra","Smaçör","73"},
                 {"Gizem","Orta","71"},
+                {"İrem","Pasör","70"},
+                {"Ecem","Karşı","72"},
+                {"Damla","Libero","69"},
         });
         VOLLEYBALL_ROSTERS.put("Halkbank Ankara", new String[][] {
                 {"Murat","Pasör","82"},
@@ -129,6 +199,37 @@ final class Squads {
                 {"Eren","Libero","77"},
                 {"Yiğit","Smaçör","75"},
                 {"Bedirhan","Orta","73"},
+                {"Onur","Pasör","71"},
+                {"Berkay","Karşı","73"},
+                {"Mert","Libero","70"},
+        });
+        VOLLEYBALL_ROSTERS.put("Ziraat Bankkart", new String[][] {
+                {"Arslan","Pasör","78"},
+                {"Cebecioğlu","Smaçör","82"},
+                {"Plotnytski","Smaçör","83"},
+                {"Mert","Orta","79"},
+                {"Berkay","Orta","77"},
+                {"Yiğit","Karşı","80"},
+                {"Hakan","Libero","74"},
+                {"Doğukan","Smaçör","72"},
+                {"Caner","Orta","71"},
+                {"Tolga","Pasör","69"},
+                {"Hüseyin","Karşı","70"},
+                {"Furkan","Libero","68"},
+        });
+        VOLLEYBALL_ROSTERS.put("Vakıfbank", new String[][] {
+                {"Foluke","Pasör","83"},
+                {"Boskovic","Smaçör","91"},
+                {"Gabi","Smaçör","86"},
+                {"Akman","Orta","81"},
+                {"Cansu","Orta","80"},
+                {"Çiçek","Karşı","84"},
+                {"Aydın","Libero","78"},
+                {"Pelin","Smaçör","75"},
+                {"Tuğba","Orta","73"},
+                {"Bahar","Pasör","72"},
+                {"Gizem","Karşı","74"},
+                {"Buse","Libero","71"},
         });
     }
 

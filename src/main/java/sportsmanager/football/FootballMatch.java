@@ -12,10 +12,13 @@ import java.util.Random;
 import java.util.Set;
 
 public class FootballMatch extends AbstractMatch {
-    private static final long serialVersionUID = 2L;
-    private static final int MATCH_LENGTH = 90;
+    private static final long serialVersionUID = 3L;
 
-    private int currentMinute = 0;
+    private int regulationMinute = 0;     // 0..90
+    private int stoppageMinute = 0;       // counted within current half's stoppage
+    private int firstHalfStoppage = -1;   // computed once at end of 1st half
+    private int secondHalfStoppage = -1;  // computed once at end of 2nd half
+    private boolean inStoppage = false;
     private boolean halftimeReported = false;
 
     public FootballMatch(ITeam home, ITeam away) {
@@ -23,12 +26,17 @@ public class FootballMatch extends AbstractMatch {
     }
 
     @Override public int getStartingSize() { return 11; }
-    @Override public int getMaxSubs() { return 3; }
-    @Override public String getClockDisplay() {
+    @Override public int getMaxSubs() { return 5; }
+
+    @Override
+    public String getClockDisplay() {
         if (!started) return "0'";
-        if (played) return MATCH_LENGTH + "'";
-        return currentMinute + "'";
+        if (played) return "MS";
+        if (inStoppage && regulationMinute == 45) return "45+" + stoppageMinute + "'";
+        if (inStoppage && regulationMinute == 90) return "90+" + stoppageMinute + "'";
+        return regulationMinute + "'";
     }
+
     @Override protected String getKickoffLabel() { return "Maç"; }
     @Override protected int getAutoChunk() { return 15; }
 
@@ -47,24 +55,68 @@ public class FootballMatch extends AbstractMatch {
 
         int startIdx = events.size();
         for (int i = 0; i < amount && !played; i++) {
-            currentMinute++;
-            simulateMinute(homeTeam, true);
-            autoResolveOpponentSubs();
-            if (!played && !isPaused()) {
-                simulateMinute(awayTeam, false);
+            boolean playedMinute = advanceOneMinute();
+            if (played) break;
+            if (playedMinute) {
+                simulateMinute(homeTeam, true);
                 autoResolveOpponentSubs();
+                if (!played && !isPaused()) {
+                    simulateMinute(awayTeam, false);
+                    autoResolveOpponentSubs();
+                }
             }
-            if (currentMinute >= 45 && !halftimeReported) {
-                halftimeReported = true;
-                events.add(new MatchEvent(MatchEvent.Type.HALFTIME, getClockDisplay(),
-                        null, null, null,
-                        "İlk yarı sonu (" + homeScore + "-" + awayScore + ")"));
-            }
-            if (currentMinute >= MATCH_LENGTH) finish();
             if (isPaused()) break;
         }
         chunk.addAll(events.subList(startIdx, events.size()));
         return chunk;
+    }
+
+    /** Advances one minute of the clock; returns true if events should be simulated for this minute. */
+    private boolean advanceOneMinute() {
+        if (regulationMinute < 45) {
+            regulationMinute++;
+            inStoppage = false;
+            return true;
+        }
+        if (regulationMinute == 45 && !halftimeReported) {
+            if (firstHalfStoppage < 0) {
+                firstHalfStoppage = 1 + rand.nextInt(4); // 1-4 dk
+                events.add(new MatchEvent(MatchEvent.Type.HALFTIME, "45'",
+                        null, null, null, "Hakem " + firstHalfStoppage + " dakika uzatma verdi"));
+            }
+            if (stoppageMinute < firstHalfStoppage) {
+                stoppageMinute++;
+                inStoppage = true;
+                return true;
+            }
+            // Halftime
+            events.add(new MatchEvent(MatchEvent.Type.HALFTIME, getClockDisplay(),
+                    null, null, null, "İlk yarı sonu (" + homeScore + "-" + awayScore + ")"));
+            halftimeReported = true;
+            stoppageMinute = 0;
+            inStoppage = false;
+            return false;
+        }
+        if (regulationMinute < 90) {
+            regulationMinute++;
+            inStoppage = false;
+            return true;
+        }
+        if (regulationMinute == 90) {
+            if (secondHalfStoppage < 0) {
+                secondHalfStoppage = 2 + rand.nextInt(5); // 2-6 dk
+                events.add(new MatchEvent(MatchEvent.Type.HALFTIME, "90'",
+                        null, null, null, "Hakem " + secondHalfStoppage + " dakika uzatma verdi"));
+            }
+            if (stoppageMinute < secondHalfStoppage) {
+                stoppageMinute++;
+                inStoppage = true;
+                return true;
+            }
+            finish();
+            return false;
+        }
+        return false;
     }
 
     private void simulateMinute(ITeam team, boolean isHome) {
@@ -75,15 +127,13 @@ public class FootballMatch extends AbstractMatch {
         int oppPower = computePower(isHome ? awayTeam : homeTeam, !isHome);
         double ratio = (double) ourPower / Math.max(1, ourPower + oppPower);
 
-        // Goal
         if (rand.nextDouble() < 0.045 * ratio * 1.4) {
             IPlayer scorer = pickScorer(s.onField);
             if (isHome) homeScore++; else awayScore++;
             events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), team, scorer, null,
                     "GOL! " + scorer.getName() + " (" + team.getName() + ")  →  "
-                    + homeScore + "-" + awayScore));
+                            + homeScore + "-" + awayScore));
         }
-        // Yellow card
         if (rand.nextDouble() < 0.018) {
             IPlayer p = pickRandom(s.onField);
             p.addYellowCard();
@@ -99,7 +149,6 @@ public class FootballMatch extends AbstractMatch {
                         "Sarı kart: " + p.getName() + " (" + team.getName() + ")"));
             }
         }
-        // Direct red card
         if (rand.nextDouble() < 0.0015) {
             IPlayer p = pickRandom(s.onField);
             p.giveRedCard();
@@ -107,7 +156,6 @@ public class FootballMatch extends AbstractMatch {
                     "DİREKT KIRMIZI! " + p.getName() + " (" + team.getName() + ")"));
             removeFromField(team, p, false);
         }
-        // Injury
         if (rand.nextDouble() < 0.005) {
             IPlayer p = pickRandom(s.onField);
             p.setInjured(true);
@@ -124,8 +172,8 @@ public class FootballMatch extends AbstractMatch {
         for (IPlayer p : s.onField) sum += p.getSkillLevel();
         int avg = sum / s.onField.size();
         int coachBonus = (team.getCoach() != null) ? team.getCoach().getBonusSkill() : 0;
-        int homeAdv = isHome ? 5 : 0;
-        int sizePenalty = Math.max(0, 11 - s.onField.size()) * 3;
+        int homeAdv = isHome ? 8 : 0;            // İç saha avantajı güçlendirildi
+        int sizePenalty = Math.max(0, 11 - s.onField.size()) * 4;
         return Math.max(1, avg + coachBonus + homeAdv - sizePenalty);
     }
 
@@ -137,7 +185,6 @@ public class FootballMatch extends AbstractMatch {
     }
 
     private IPlayer pickScorer(Set<IPlayer> pool) {
-        // Skill-weighted, with bonus for forwards
         int total = 0;
         for (IPlayer p : pool) total += weight(p);
         if (total <= 0) return pickRandom(pool);
@@ -168,7 +215,7 @@ public class FootballMatch extends AbstractMatch {
         String w = (winner == null) ? "Beraberlik" : (winner.getName() + " kazandı");
         events.add(new MatchEvent(MatchEvent.Type.FULLTIME, getClockDisplay(), null, null, null,
                 "Maç bitti: " + homeTeam.getName() + " " + homeScore + "-" + awayScore + " "
-                + awayTeam.getName() + " — " + w));
+                        + awayTeam.getName() + " — " + w));
     }
 
     @Override

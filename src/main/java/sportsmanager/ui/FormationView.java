@@ -2,8 +2,10 @@ package sportsmanager.ui;
 
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
@@ -14,7 +16,7 @@ import sportsmanager.core.ITeam;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Renders both teams' starting line-ups on a small pitch / court. Fixed size, no binding. */
+/** Renders both teams' starting line-ups on a small pitch / court. */
 final class FormationView {
 
     private FormationView() {}
@@ -27,7 +29,6 @@ final class FormationView {
         root.setMaxSize(w, h);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #0d7a3a, #1ea84a); -fx-background-radius: 10;");
 
-        // Pitch lines
         Color line = Color.web("#ffffff", 0.8);
         Rectangle outer = new Rectangle(8, 8, w - 16, h - 16);
         outer.setFill(Color.TRANSPARENT); outer.setStroke(line); outer.setStrokeWidth(2);
@@ -35,33 +36,34 @@ final class FormationView {
         mid.setStroke(line); mid.setStrokeWidth(2);
         Circle midC = new Circle(w / 2, h / 2, Math.min(w, h) * 0.10);
         midC.setFill(Color.TRANSPARENT); midC.setStroke(line); midC.setStrokeWidth(2);
-        // Penalty boxes
         Rectangle pl = new Rectangle(8, h * 0.25, w * 0.14, h * 0.50);
         pl.setFill(Color.TRANSPARENT); pl.setStroke(line); pl.setStrokeWidth(2);
         Rectangle pr = new Rectangle(w - 8 - w * 0.14, h * 0.25, w * 0.14, h * 0.50);
         pr.setFill(Color.TRANSPARENT); pr.setStroke(line); pr.setStrokeWidth(2);
         root.getChildren().addAll(outer, mid, midC, pl, pr);
 
-        placeFootballSide(root, w, h, homeOnField, true,  Color.web("#e74c3c"), home.getName());
-        placeFootballSide(root, w, h, awayOnField, false, Color.web("#3498db"), away.getName());
+        placeFootballSide(root, w, h, homeOnField, true,  Color.web("#e74c3c"));
+        placeFootballSide(root, w, h, awayOnField, false, Color.web("#3498db"));
 
-        // Team labels
         Label hLabel = new Label(home.getName());
         hLabel.setLayoutX(12); hLabel.setLayoutY(h - 22);
-        hLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 4, 0, 1, 1);");
+        hLabel.setStyle(teamLabelStyle());
         Label aLabel = new Label(away.getName());
-        aLabel.setLayoutX(w - 12 - 100); aLabel.setLayoutY(h - 22);
+        aLabel.setLayoutX(w - 12 - 140); aLabel.setLayoutY(h - 22);
         aLabel.setAlignment(Pos.CENTER_RIGHT);
-        aLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 4, 0, 1, 1);");
+        aLabel.setStyle(teamLabelStyle());
         root.getChildren().addAll(hLabel, aLabel);
 
         return root;
     }
 
+    private static String teamLabelStyle() {
+        return "-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 4, 0, 1, 1);";
+    }
+
     private static void placeFootballSide(Pane root, double w, double h, List<IPlayer> players,
-                                          boolean leftHalf, Color color, String teamName) {
+                                          boolean leftHalf, Color color) {
         if (players == null || players.isEmpty()) return;
         List<IPlayer> gk = new ArrayList<>(), def = new ArrayList<>(), mid = new ArrayList<>(), fwd = new ArrayList<>();
         for (IPlayer p : players) {
@@ -72,10 +74,10 @@ final class FormationView {
             else if (pos.contains("forvet") || pos.contains("kanat") || pos.contains("santrafor")) fwd.add(p);
             else mid.add(p);
         }
-        // X positions in half-width units (0.0 = own goal line, 1.0 = midline)
+        // X positions in normalized width
         double[] xs = leftHalf
-                ? new double[] { 0.06, 0.22, 0.38, 0.46 }   // GK, DEF, MID, FWD
-                : new double[] { 0.94, 0.78, 0.62, 0.54 };
+                ? new double[] { 0.05, 0.20, 0.35, 0.45 }
+                : new double[] { 0.95, 0.80, 0.65, 0.55 };
         placeRowF(root, w, h, gk,  xs[0], color);
         placeRowF(root, w, h, def, xs[1], color);
         placeRowF(root, w, h, mid, xs[2], color);
@@ -85,9 +87,11 @@ final class FormationView {
     private static void placeRowF(Pane root, double w, double h, List<IPlayer> players, double xRatio, Color color) {
         int n = players.size();
         if (n == 0) return;
+        double topMargin = 0.10, bottomMargin = 0.90;
+        double range = bottomMargin - topMargin;
         for (int i = 0; i < n; i++) {
             double x = w * xRatio;
-            double y = h * (0.10 + (0.80 * (i + 0.5) / n));
+            double y = h * (topMargin + range * (i + 0.5) / n);
             root.getChildren().add(playerToken(players.get(i), x, y, color));
         }
     }
@@ -104,10 +108,8 @@ final class FormationView {
         Rectangle court = new Rectangle(w * 0.08, h * 0.12, w * 0.84, h * 0.76);
         court.setFill(Color.web("#e89a5a", 0.45));
         court.setStroke(line); court.setStrokeWidth(2);
-        // Net
         Line net = new Line(w / 2, h * 0.06, w / 2, h * 0.94);
         net.setStroke(Color.web("#1f1f1f", 0.85)); net.setStrokeWidth(5);
-        // Attack lines
         Line al = new Line(w * (0.08 + 0.84 / 3.0), h * 0.12, w * (0.08 + 0.84 / 3.0), h * 0.88);
         Line ar = new Line(w * (0.08 + 0.84 * 2.0 / 3.0), h * 0.12, w * (0.08 + 0.84 * 2.0 / 3.0), h * 0.88);
         al.setStroke(line); ar.setStroke(line);
@@ -119,12 +121,10 @@ final class FormationView {
 
         Label hLabel = new Label(home.getName());
         hLabel.setLayoutX(12); hLabel.setLayoutY(h - 22);
-        hLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 4, 0, 1, 1);");
+        hLabel.setStyle(teamLabelStyle());
         Label aLabel = new Label(away.getName());
-        aLabel.setLayoutX(w - 12 - 110); aLabel.setLayoutY(h - 22);
-        aLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 4, 0, 1, 1);");
+        aLabel.setLayoutX(w - 12 - 140); aLabel.setLayoutY(h - 22);
+        aLabel.setStyle(teamLabelStyle());
         root.getChildren().addAll(hLabel, aLabel);
 
         return root;
@@ -132,7 +132,6 @@ final class FormationView {
 
     private static void placeVolley(Pane root, double w, double h, List<IPlayer> players, boolean leftHalf, Color color) {
         if (players == null || players.isEmpty()) return;
-        // Two columns × three rows on each side
         double[] cols = leftHalf
                 ? new double[] { w * 0.18, w * 0.36 }
                 : new double[] { w * 0.82, w * 0.64 };
@@ -144,31 +143,53 @@ final class FormationView {
         }
     }
 
-    private static StackPane playerToken(IPlayer p, double x, double y, Color color) {
-        Circle dot = new Circle(13);
+    private static javafx.scene.Node playerToken(IPlayer p, double x, double y, Color color) {
+        // Top badges row (goals, cards, sub-in) — placed above the player dot
+        HBox badges = new HBox(2);
+        badges.setAlignment(Pos.CENTER);
+        if (p.getGoalsThisMatch() > 0) {
+            String mins = String.join(",", p.getGoalMinutes());
+            String goalText = "⚽" + mins;
+            Label gl = new Label(goalText);
+            gl.setStyle("-fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;"
+                    + " -fx-background-color: rgba(0,0,0,0.65); -fx-padding: 1 5; -fx-background-radius: 6;");
+            badges.getChildren().add(gl);
+        }
+        if (p.hasRedCard()) {
+            Label l = new Label("🟥");
+            l.setStyle("-fx-font-size: 11px;");
+            badges.getChildren().add(l);
+        } else if (p.getYellowCards() > 0) {
+            Label l = new Label(p.getYellowCards() == 2 ? "🟨🟨" : "🟨");
+            l.setStyle("-fx-font-size: 11px;");
+            badges.getChildren().add(l);
+        }
+        if (p.getSubInClock() != null) {
+            Label l = new Label("🔁" + p.getSubInClock());
+            l.setStyle("-fx-text-fill: white; -fx-font-size: 9px; -fx-font-weight: bold;"
+                    + " -fx-background-color: #16a085; -fx-padding: 0 4; -fx-background-radius: 6;");
+            badges.getChildren().add(l);
+        }
+
+        Circle dot = new Circle(14);
         dot.setFill(color);
         dot.setStroke(Color.WHITE);
         dot.setStrokeWidth(2);
         Label num = new Label(String.valueOf(p.getSkillLevel()));
-        num.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px;");
-        StackPane node = new StackPane(dot, num);
-        Label name = new Label(badge(p) + p.getName());
-        name.setStyle("-fx-text-fill: white; -fx-font-size: 10px; -fx-font-weight: bold;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 4, 0, 0, 1);");
-        name.setLayoutY(16);
-        StackPane container = new StackPane();
-        container.getChildren().addAll(node, name);
-        StackPane.setAlignment(name, Pos.BOTTOM_CENTER);
-        container.setLayoutX(x - 30);
-        container.setLayoutY(y - 14);
-        container.setPrefSize(60, 38);
-        return container;
-    }
+        num.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+        StackPane dotPane = new StackPane(dot, num);
 
-    private static String badge(IPlayer p) {
-        if (p.hasRedCard()) return "🟥 ";
-        if (p.isInjured()) return "⚕ ";
-        if (p.getYellowCards() > 0) return "🟨 ";
-        return "";
+        Label name = new Label(p.getName());
+        name.setStyle("-fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.95), 4, 0, 0, 1);");
+
+        VBox col = new VBox(1, badges, dotPane, name);
+        col.setAlignment(Pos.CENTER);
+        // IMPORTANT: layoutX/Y must be set on the Node returned (which is the child of the parent Pane).
+        col.setLayoutX(x - 45);
+        col.setLayoutY(y - 30);
+        col.setPrefSize(90, 64);
+        col.setMouseTransparent(true);
+        return col;
     }
 }

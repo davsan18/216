@@ -24,6 +24,10 @@ public abstract class AbstractMatch implements IMatch {
     protected TeamState awayState = new TeamState();
     protected ITeam userTeam;
 
+    /** Zorunlu sub bekleyen son oyuncu (sakatlık/kırmızı sonrası) — UI'da göstermek için. */
+    protected IPlayer homeLastForceRemoved;
+    protected IPlayer awayLastForceRemoved;
+
     protected transient Random rand;
 
     public AbstractMatch(ITeam homeTeam, ITeam awayTeam) {
@@ -103,10 +107,19 @@ public abstract class AbstractMatch implements IMatch {
         state.subsUsed = 0;
         state.pendingReplacements = 0;
         int starters = getStartingSize();
-        int idx = 0;
+
+        // Sakat oyuncuların maç başında %35 ihtimalle iyileşmesi
+        java.util.List<IPlayer> healthy = new java.util.ArrayList<>();
         for (IPlayer p : team.getPlayers()) {
             p.resetMatchCards();
-            p.setInjured(false);
+            if (p.isInjured() && Math.random() < 0.35) {
+                p.setInjured(false);
+            }
+            if (!p.isInjured()) healthy.add(p);
+            else state.removed.add(p); // Sakat → bu maça çıkamaz
+        }
+        int idx = 0;
+        for (IPlayer p : healthy) {
             if (idx < starters) state.onField.add(p);
             else state.bench.add(p);
             idx++;
@@ -129,6 +142,7 @@ public abstract class AbstractMatch implements IMatch {
         s.bench.remove(in);
         s.onField.add(in);
         s.subsUsed++;
+        in.setSubInClock(getClockDisplay());
         events.add(new MatchEvent(MatchEvent.Type.SUBSTITUTION, getClockDisplay(),
                 team, out, in, "Değişiklik: " + out.getName() + " ↔ " + in.getName()
                 + " (" + team.getName() + ")"));
@@ -145,9 +159,17 @@ public abstract class AbstractMatch implements IMatch {
         s.onField.add(in);
         s.subsUsed++;
         s.pendingReplacements--;
+        in.setSubInClock(getClockDisplay());
+        if (team == homeTeam) homeLastForceRemoved = null;
+        else awayLastForceRemoved = null;
         events.add(new MatchEvent(MatchEvent.Type.SUBSTITUTION, getClockDisplay(),
-                team, null, in, in.getName() + " sahaya girdi (" + team.getName() + ")"));
+                team, null, in, in.getName() + " oyuna girdi (" + team.getName() + ")"));
         return true;
+    }
+
+    @Override
+    public IPlayer getLastForceRemoved(ITeam team) {
+        return team == homeTeam ? homeLastForceRemoved : awayLastForceRemoved;
     }
 
     /** Removes an injured/red-carded player from the field. flagsForceSub=true means user must replace if possible. */
@@ -157,6 +179,8 @@ public abstract class AbstractMatch implements IMatch {
         s.removed.add(player);
         if (flagsForceSub && s.subsUsed < getMaxSubs() && !s.bench.isEmpty()) {
             s.pendingReplacements++;
+            if (team == homeTeam) homeLastForceRemoved = player;
+            else awayLastForceRemoved = player;
         }
     }
 

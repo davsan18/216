@@ -94,7 +94,7 @@ public class VolleyballMatch extends AbstractMatch {
                 IPlayer p = pickRandom(s.onField);
                 p.setInjured(true);
                 events.add(new MatchEvent(MatchEvent.Type.INJURY, getClockDisplay(), t, p, null,
-                        "SAKATLIK: " + p.getName() + " (" + t.getName() + ") oyunu bırakıyor"));
+                        "SAKATLIK: " + p.getName() + " (" + t.getName() + ") oyundan çıkıyor"));
                 removeFromField(t, p, true);
             }
         }
@@ -105,6 +105,7 @@ public class VolleyballMatch extends AbstractMatch {
             homeSetPoints++;
             IPlayer scorer = pickScorer(homeTeam);
             if (scorer != null) {
+                scorer.addGoalThisMatch(getClockDisplay());
                 events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), homeTeam, scorer, null,
                         "Sayı: " + scorer.getName() + " (" + homeTeam.getName() + ")"));
             }
@@ -112,6 +113,7 @@ public class VolleyballMatch extends AbstractMatch {
             awaySetPoints++;
             IPlayer scorer = pickScorer(awayTeam);
             if (scorer != null) {
+                scorer.addGoalThisMatch(getClockDisplay());
                 events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), awayTeam, scorer, null,
                         "Sayı: " + scorer.getName() + " (" + awayTeam.getName() + ")"));
             }
@@ -192,10 +194,9 @@ public class VolleyballMatch extends AbstractMatch {
         int sum = 0;
         for (IPlayer p : s.onField) sum += p.getSkillLevel();
         int avg = sum / s.onField.size();
-        int coachBonus = (team.getCoach() != null) ? team.getCoach().getBonusSkill() : 0;
         int homeAdv = isHome ? 4 : 0;
         int sizePenalty = Math.max(0, 6 - s.onField.size()) * 5;
-        return Math.max(1, avg + coachBonus + homeAdv - sizePenalty);
+        return Math.max(1, avg + homeAdv - sizePenalty);
     }
 
     private IPlayer pickRandom(Set<IPlayer> pool) {

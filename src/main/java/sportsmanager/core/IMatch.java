@@ -32,6 +32,9 @@ public interface IMatch extends java.io.Serializable {
     boolean substitute(ITeam team, IPlayer out, IPlayer in);
     boolean replace(ITeam team, IPlayer in);
 
+    /** En son zorunlu sub bekleyen oyuncuyu döndürür (sakatlık/kırmızı sonrası). */
+    IPlayer getLastForceRemoved(ITeam team);
+
     void setUserTeam(ITeam team);
     ITeam getUserTeam();
 

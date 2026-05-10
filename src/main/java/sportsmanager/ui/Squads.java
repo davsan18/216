@@ -13,6 +13,9 @@ final class Squads {
 
     static final Map<String, String[][]> FOOTBALL_ROSTERS = new HashMap<>();
     static final Map<String, String[][]> VOLLEYBALL_ROSTERS = new HashMap<>();
+    static final Map<String, String> STADIUMS = new HashMap<>();
+    static final Map<String, String> COACHES = new HashMap<>();
+    static final Map<String, Integer> COACH_BONUS = new HashMap<>();
 
     static final String[] FOOTBALL_TEAMS = {
             "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor",
@@ -23,7 +26,40 @@ final class Squads {
             "Halkbank Ankara", "Ziraat Bankkart", "Vakıfbank"
     };
 
+    static String stadium(String team) { return STADIUMS.getOrDefault(team, "—"); }
+    static String coach(String team)   { return COACHES.getOrDefault(team, "Teknik Direktör"); }
+    static int coachBonus(String team) { return COACH_BONUS.getOrDefault(team, 5); }
+
     static {
+        // Stadyumlar
+        STADIUMS.put("Galatasaray", "Rams Park");
+        STADIUMS.put("Fenerbahçe", "Şükrü Saracoğlu");
+        STADIUMS.put("Beşiktaş", "Tüpraş Stadyumu");
+        STADIUMS.put("Trabzonspor", "Şenol Güneş");
+        STADIUMS.put("Başakşehir", "Başakşehir Fatih Terim");
+        STADIUMS.put("Konyaspor", "Konya Büyükşehir");
+        STADIUMS.put("Galatasaray HDI", "Burhan Felek Salonu");
+        STADIUMS.put("Fenerbahçe Medicana", "Caferağa Spor Salonu");
+        STADIUMS.put("Beşiktaş Akatel", "BJK Akatlar Arena");
+        STADIUMS.put("Halkbank Ankara", "Başkent Volleyball Hall");
+        STADIUMS.put("Ziraat Bankkart", "TVF Başkent Salonu");
+        STADIUMS.put("Vakıfbank", "Vakıfbank Spor Sarayı");
+
+        // Teknik Direktörler (futbol)
+        COACHES.put("Galatasaray", "Okan Buruk");      COACH_BONUS.put("Galatasaray", 10);
+        COACHES.put("Fenerbahçe", "İsmail Kartal");    COACH_BONUS.put("Fenerbahçe", 9);
+        COACHES.put("Beşiktaş", "Fernando Santos");    COACH_BONUS.put("Beşiktaş", 8);
+        COACHES.put("Trabzonspor", "Abdullah Avcı");   COACH_BONUS.put("Trabzonspor", 9);
+        COACHES.put("Başakşehir", "Çağdaş Atan");      COACH_BONUS.put("Başakşehir", 7);
+        COACHES.put("Konyaspor", "Ali Çamdalı");       COACH_BONUS.put("Konyaspor", 6);
+        // Teknik Direktörler (voleybol)
+        COACHES.put("Galatasaray HDI", "Bülent Karslıoğlu"); COACH_BONUS.put("Galatasaray HDI", 9);
+        COACHES.put("Fenerbahçe Medicana", "Marcello Abbondanza"); COACH_BONUS.put("Fenerbahçe Medicana", 10);
+        COACHES.put("Beşiktaş Akatel", "Cesar Hernandez"); COACH_BONUS.put("Beşiktaş Akatel", 7);
+        COACHES.put("Halkbank Ankara", "Slobodan Kovac"); COACH_BONUS.put("Halkbank Ankara", 8);
+        COACHES.put("Ziraat Bankkart", "Ferhat Akbaş"); COACH_BONUS.put("Ziraat Bankkart", 7);
+        COACHES.put("Vakıfbank", "Giovanni Guidetti"); COACH_BONUS.put("Vakıfbank", 10);
+
         // 18 oyuncu / takım: 1 K + 5 D + 5 OS + 3 F + 4 yedek
         FOOTBALL_ROSTERS.put("Galatasaray", new String[][] {
                 {"Muslera","Kaleci","85"},

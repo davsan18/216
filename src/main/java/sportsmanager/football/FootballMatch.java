@@ -129,9 +129,12 @@ public class FootballMatch extends AbstractMatch {
 
         if (rand.nextDouble() < 0.045 * ratio * 1.4) {
             IPlayer scorer = pickScorer(s.onField);
+            scorer.addGoalThisMatch(getClockDisplay());
             if (isHome) homeScore++; else awayScore++;
+            String goals = scorer.getGoalsThisMatch() > 1
+                    ? " (" + scorer.getGoalsThisMatch() + ". golü)" : "";
             events.add(new MatchEvent(MatchEvent.Type.GOAL, getClockDisplay(), team, scorer, null,
-                    "GOL! " + scorer.getName() + " (" + team.getName() + ")  →  "
+                    "GOL! " + scorer.getName() + goals + " (" + team.getName() + ")  →  "
                             + homeScore + "-" + awayScore));
         }
         if (rand.nextDouble() < 0.018) {
@@ -160,7 +163,7 @@ public class FootballMatch extends AbstractMatch {
             IPlayer p = pickRandom(s.onField);
             p.setInjured(true);
             events.add(new MatchEvent(MatchEvent.Type.INJURY, getClockDisplay(), team, p, null,
-                    "SAKATLIK: " + p.getName() + " (" + team.getName() + ") oyunu bırakıyor"));
+                    "SAKATLIK: " + p.getName() + " (" + team.getName() + ") oyundan çıkıyor"));
             removeFromField(team, p, true);
         }
     }
@@ -171,10 +174,9 @@ public class FootballMatch extends AbstractMatch {
         int sum = 0;
         for (IPlayer p : s.onField) sum += p.getSkillLevel();
         int avg = sum / s.onField.size();
-        int coachBonus = (team.getCoach() != null) ? team.getCoach().getBonusSkill() : 0;
-        int homeAdv = isHome ? 8 : 0;            // İç saha avantajı güçlendirildi
+        int homeAdv = isHome ? 8 : 0;            // İç saha avantajı
         int sizePenalty = Math.max(0, 11 - s.onField.size()) * 4;
-        return Math.max(1, avg + coachBonus + homeAdv - sizePenalty);
+        return Math.max(1, avg + homeAdv - sizePenalty);
     }
 
     private IPlayer pickRandom(Set<IPlayer> pool) {

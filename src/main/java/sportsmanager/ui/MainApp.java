@@ -4,6 +4,7 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -14,10 +15,11 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
-import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
@@ -42,7 +44,9 @@ import sportsmanager.volleyball.VolleyballFactory;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class MainApp extends Application {
@@ -56,10 +60,12 @@ public class MainApp extends Application {
     private ILeague currentLeague;
     private boolean isFootballSport;
     private ITeam managedTeam;
+    private ISportFactory currentFactory;
+    private String currentSportName;
 
     // Dashboard widgets
     private ListView<String> standingsView;
-    private ListView<MatchRow> historyView;
+    private ListView<FixtureItem> fixtureView;
     private ListView<String> injuriesView;
     private Label nextMatchLabel;
     private Button playMatchBtn;
@@ -68,14 +74,17 @@ public class MainApp extends Application {
     // Match view widgets
     private IMatch currentMatch;
     private Label matchClockLabel;
-    private Label matchScoreLabel;
+    private Label matchHomeScoreLabel;
+    private Label matchAwayScoreLabel;
+    private Label matchHomeAbbrLabel;
+    private Label matchAwayAbbrLabel;
     private ListView<MatchEvent> eventsView;
     private ListView<IPlayer> ourOnFieldView;
     private ListView<IPlayer> ourBenchView;
     private ListView<IPlayer> oppOnFieldView;
     private ListView<IPlayer> oppBenchView;
     private StackPane formationHolder;
-    private Label subsRemainingLabel;
+    private Label subsBadge;
     private Button substituteBtn;
     private Button quickFinishBtn;
     private Button continueBtn;
@@ -100,17 +109,25 @@ public class MainApp extends Application {
         Label title = new Label("SPORTS MANAGER");
         title.setStyle("-fx-font-size: 42px; -fx-font-weight: bold; -fx-text-fill: white;"
                 + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 12, 0, 2, 3);");
-        Label subtitle = new Label("Lütfen yönetmek istediğiniz sporu seçin");
-        subtitle.setStyle("-fx-font-size: 18px; -fx-text-fill: #ecf0f1; -fx-padding: 0 0 30 0;");
+        Label subtitle = new Label("Lütfen antrenör olmak istediğiniz sporu seçin");
+        subtitle.setStyle("-fx-font-size: 18px; -fx-text-fill: #ecf0f1; -fx-padding: 0 0 20 0;");
 
         Button btnFootball = bigMenuButton("⚽ FUTBOL", "#27ae60");
         Button btnVolleyball = bigMenuButton("🏐 VOLEYBOL", "#e67e22");
         btnFootball.setOnAction(e -> openTeamSelect(new FootballFactory(), "Futbol"));
         btnVolleyball.setOnAction(e -> openTeamSelect(new VolleyballFactory(), "Voleybol"));
 
-        HBox buttonBox = new HBox(30, btnFootball, btnVolleyball);
-        buttonBox.setAlignment(Pos.CENTER);
-        VBox root = new VBox(15, title, subtitle, buttonBox);
+        HBox sportRow = new HBox(28, btnFootball, btnVolleyball);
+        sportRow.setAlignment(Pos.CENTER);
+
+        Button mySaves = new Button("📂 Kayıtlarım");
+        mySaves.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #8e44ad;"
+                + " -fx-text-fill: white; -fx-pref-width: 220px; -fx-pref-height: 50px; -fx-cursor: hand;"
+                + " -fx-background-radius: 22px;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 4);");
+        mySaves.setOnAction(e -> primaryStage.setScene(buildSavesManagerScene()));
+
+        VBox root = new VBox(15, title, subtitle, sportRow, mySaves);
         root.setAlignment(Pos.CENTER);
         root.setStyle("-fx-background-color: linear-gradient(to bottom right, #1a2a6c, #b21f1f, #fdbb2d);");
         return new Scene(root, 1100, 740);
@@ -125,16 +142,138 @@ public class MainApp extends Application {
         return b;
     }
 
+    // ============== KAYITLARIM ==============
+
+    private Scene buildSavesManagerScene() {
+        StackPane root = new StackPane();
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #1a2a6c, #b21f1f, #fdbb2d);");
+
+        Label title = new Label("📂 KAYITLARIM");
+        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: white;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 10, 0, 2, 2);");
+
+        VBox slotList = new VBox(8);
+        slotList.setAlignment(Pos.CENTER);
+        for (boolean foot : new boolean[]{true, false}) {
+            for (int i = 1; i <= SLOT_COUNT; i++) {
+                slotList.getChildren().add(buildSaveSlotRow(i, foot, slotList));
+            }
+        }
+
+        Button back = secondaryButton("⬅ Ana Menü", "#7f8c8d");
+        back.setOnAction(e -> primaryStage.setScene(mainMenuScene));
+
+        ScrollPane scroll = new ScrollPane(slotList);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scroll.setMaxHeight(500);
+
+        VBox content = new VBox(16, title, scroll, back);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(28));
+        content.setMaxWidth(820);
+        content.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 14;");
+
+        StackPane wrap = new StackPane(content);
+        wrap.setPadding(new Insets(28));
+        root.getChildren().addAll(wrap);
+        return new Scene(root, 1100, 740);
+    }
+
+    private HBox buildSaveSlotRow(int slot, boolean football, VBox listContainer) {
+        File f = new File(slotPathForSport(slot, football));
+        boolean exists = f.exists();
+        DataManager.SaveMeta meta = exists ? DataManager.loadMeta(slotPathForSport(slot, football)) : null;
+        String sportTag = football ? "⚽ Futbol" : "🏐 Voleybol";
+        String name = (meta != null && meta.name != null && !meta.name.isBlank()) ? meta.name : (exists ? "(adsız)" : "");
+        long ts = (meta != null && meta.timestamp > 0) ? meta.timestamp : (exists ? f.lastModified() : 0);
+        String when = ts > 0 ? new SimpleDateFormat("dd.MM.yyyy HH:mm").format(new Date(ts)) : "";
+        String managed = (meta != null && meta.managedTeam != null && !meta.managedTeam.isBlank()) ? meta.managedTeam : "";
+        String progress = (meta != null && meta.matchesTotal > 0) ? meta.matchesPlayed + "/" + meta.matchesTotal + " maç" : "";
+
+        Label slotLabel = new Label("Slot " + slot + "  ·  " + sportTag);
+        slotLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #ecf0f1;");
+
+        Label nameLabel = new Label(exists ? name : "boş");
+        nameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white;");
+
+        Label detailLabel = new Label(
+                exists ? (when + (managed.isEmpty() ? "" : "  ·  " + managed) + (progress.isEmpty() ? "" : "  ·  " + progress)) : "");
+        detailLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #ecf0f1;");
+
+        VBox info = new VBox(2, slotLabel, nameLabel, detailLabel);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button loadBtn = new Button("Yükle");
+        loadBtn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-color: #16a085;"
+                + " -fx-text-fill: white; -fx-padding: 8 18; -fx-cursor: hand; -fx-background-radius: 8;");
+        loadBtn.setDisable(!exists);
+        loadBtn.setOnAction(e -> loadFromSlot(slot, football));
+
+        Button delBtn = new Button("Sil");
+        delBtn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-color: #c0392b;"
+                + " -fx-text-fill: white; -fx-padding: 8 18; -fx-cursor: hand; -fx-background-radius: 8;");
+        delBtn.setDisable(!exists);
+        delBtn.setOnAction(e -> {
+            Alert a = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Bu kayıt kalıcı olarak silinecek. Emin misiniz?",
+                    ButtonType.OK, ButtonType.CANCEL);
+            a.setHeaderText("Kaydı Sil");
+            Optional<ButtonType> r = a.showAndWait();
+            if (r.isPresent() && r.get() == ButtonType.OK) {
+                deleteSlot(slot, football);
+                primaryStage.setScene(buildSavesManagerScene());
+            }
+        });
+
+        HBox row = new HBox(14, info, spacer, loadBtn, delBtn);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(10, 16, 10, 16));
+        row.setStyle(exists
+                ? "-fx-background-color: rgba(255,255,255,0.10); -fx-background-radius: 10;"
+                : "-fx-background-color: rgba(255,255,255,0.04); -fx-background-radius: 10;");
+        return row;
+    }
+
+    private void loadFromSlot(int slot, boolean football) {
+        try {
+            ILeague loaded = DataManager.loadGame(slotPathForSport(slot, football));
+            currentLeague = loaded;
+            isFootballSport = football;
+            managedTeam = currentLeague.getManagedTeam();
+            if (managedTeam == null && !currentLeague.getTeams().isEmpty()) {
+                managedTeam = currentLeague.getTeams().get(0);
+                currentLeague.setManagedTeam(managedTeam);
+            }
+            primaryStage.setScene(buildDashboardScene());
+            setStatus("✓ Kayıt yüklendi.");
+        } catch (Exception ex) {
+            Alert a = new Alert(Alert.AlertType.ERROR, "Yükleme hatası: " + ex.getMessage(), ButtonType.OK);
+            a.showAndWait();
+        }
+    }
+
+    private void deleteSlot(int slot, boolean football) {
+        File f = new File(slotPathForSport(slot, football));
+        File meta = new File(slotPathForSport(slot, football) + ".meta");
+        if (f.exists()) f.delete();
+        if (meta.exists()) meta.delete();
+    }
+
     // ============== TAKIM SEÇİM ==============
 
     private void openTeamSelect(ISportFactory factory, String sportName) {
+        this.currentFactory = factory;
+        this.currentSportName = sportName;
         this.isFootballSport = factory instanceof FootballFactory;
         this.currentLeague = factory.createLeague(sportName + " Süper Ligi");
 
         String[] teamNames = isFootballSport ? Squads.FOOTBALL_TEAMS : Squads.VOLLEYBALL_TEAMS;
         for (String tn : teamNames) {
             ITeam t = factory.createTeam(tn);
-            t.setCoach(new Coach("Teknik Direktör", 5 + (int)(Math.random() * 6)));
+            // TD oyundan kaldırıldı (kullanıcı zaten antrenör)
             Squads.fillRoster(t, factory, isFootballSport);
             currentLeague.addTeam(t);
         }
@@ -149,30 +288,25 @@ public class MainApp extends Application {
         field.prefWidthProperty().bind(root.widthProperty());
         field.prefHeightProperty().bind(root.heightProperty());
 
-        Label title = new Label((isFootballSport ? "⚽ " : "🏐 ") + "Yöneteceğiniz takımı seçin");
-        title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: white;"
+        Label title = new Label((isFootballSport ? "⚽ " : "🏐 ") + "Antrenör olacağınız takımı seçin");
+        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: white;"
                 + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 8, 0, 1, 1);");
 
-        VBox teamCards = new VBox(10);
+        VBox teamCards = new VBox(8);
         teamCards.setAlignment(Pos.CENTER);
         for (ITeam t : currentLeague.getTeams()) teamCards.getChildren().add(buildTeamCard(t));
 
-        Button loadBtn = secondaryButton("📂 Kayıt Yükle", "#8e44ad");
-        loadBtn.setOnAction(e -> openLoadDialog());
         Button back = secondaryButton("⬅ Geri", "#7f8c8d");
         back.setOnAction(e -> primaryStage.setScene(mainMenuScene));
 
-        HBox bottomRow = new HBox(12, back, loadBtn);
-        bottomRow.setAlignment(Pos.CENTER);
-
-        VBox content = new VBox(16, title, teamCards, bottomRow);
+        VBox content = new VBox(14, title, teamCards, back);
         content.setAlignment(Pos.CENTER);
-        content.setPadding(new Insets(28));
-        content.setMaxWidth(760);
+        content.setPadding(new Insets(24));
+        content.setMaxWidth(820);
         content.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 14;");
 
         StackPane wrap = new StackPane(content);
-        wrap.setPadding(new Insets(28));
+        wrap.setPadding(new Insets(24));
         root.getChildren().addAll(field, wrap);
         return new Scene(root, 1100, 740);
     }
@@ -183,7 +317,7 @@ public class MainApp extends Application {
         int skill = teamAverageSkill(team);
         Label info = new Label("Ortalama: " + skill
                 + "  ·  " + team.getPlayers().size() + " oyuncu"
-                + "  ·  TD: " + (team.getCoach() != null ? team.getCoach().getName() : "-"));
+                + "  ·  Stad: " + Squads.stadium(team.getName()));
         info.setStyle("-fx-font-size: 12px; -fx-text-fill: #ecf0f1;");
         VBox txt = new VBox(2, name, info);
 
@@ -239,7 +373,7 @@ public class MainApp extends Application {
 
         String icon = isFootballSport ? "⚽" : "🏐";
         Label header = new Label(icon + "  " + currentLeague.getName().toUpperCase()
-                + "  |  Yönetilen: " + managedTeam.getName());
+                + "  |  Takımım: " + managedTeam.getName());
         header.setStyle("-fx-font-size: 19px; -fx-font-weight: bold; -fx-text-fill: white;"
                 + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 6, 0, 1, 1);");
 
@@ -261,18 +395,18 @@ public class MainApp extends Application {
                 + " -fx-control-inner-background: rgba(255,255,255,0.95); -fx-background-radius: 10;");
         VBox standingsCard = card("📊 Puan Durumu", standingsView);
 
-        historyView = new ListView<>();
-        historyView.setStyle("-fx-control-inner-background: rgba(255,255,255,0.95); -fx-background-radius: 10;");
-        historyView.setCellFactory(lv -> new MatchCell());
-        VBox historyCard = card("⚔ Maç Sonuçları", historyView);
+        fixtureView = new ListView<>();
+        fixtureView.setStyle("-fx-control-inner-background: rgba(255,255,255,0.95); -fx-background-radius: 10;");
+        fixtureView.setCellFactory(lv -> new FixtureCell());
+        VBox fixtureCard = card("📅 Fikstür", fixtureView);
 
         injuriesView = new ListView<>();
         injuriesView.setStyle("-fx-font-size: 13px; -fx-control-inner-background: rgba(255,235,235,0.95);"
                 + " -fx-background-radius: 10;");
         VBox injuriesCard = card("⚕ Sakatlar", injuriesView);
 
-        VBox right = new VBox(10, historyCard, injuriesCard);
-        VBox.setVgrow(historyCard, Priority.ALWAYS);
+        VBox right = new VBox(10, fixtureCard, injuriesCard);
+        VBox.setVgrow(fixtureCard, Priority.ALWAYS);
         VBox.setVgrow(injuriesCard, Priority.SOMETIMES);
 
         HBox.setHgrow(standingsCard, Priority.ALWAYS);
@@ -311,7 +445,7 @@ public class MainApp extends Application {
 
     private void refreshDashboard() {
         updateStandings();
-        updateHistory();
+        updateFixture();
         updateInjuries();
         updateNextMatch();
     }
@@ -327,17 +461,31 @@ public class MainApp extends Application {
         }
     }
 
-    private void updateHistory() {
-        historyView.getItems().clear();
-        List<IMatch> all = currentLeague.getScheduledMatches();
-        for (int i = all.size() - 1; i >= 0; i--) {
-            IMatch m = all.get(i);
-            if (!m.isPlayed()) continue;
-            int round = currentLeague.getRoundOf(m);
-            historyView.getItems().add(new MatchRow(round, m, managedTeam));
+    private void updateFixture() {
+        fixtureView.getItems().clear();
+        // Group by week
+        Map<Integer, java.util.List<IMatch>> byRound = new LinkedHashMap<>();
+        for (IMatch m : currentLeague.getScheduledMatches()) {
+            int r = currentLeague.getRoundOf(m);
+            byRound.computeIfAbsent(r, k -> new java.util.ArrayList<>()).add(m);
         }
-        if (historyView.getItems().isEmpty()) {
-            historyView.getItems().add(new MatchRow(0, null, null));
+        for (Map.Entry<Integer, java.util.List<IMatch>> e : byRound.entrySet()) {
+            fixtureView.getItems().add(FixtureItem.header(e.getKey()));
+            for (IMatch m : e.getValue()) {
+                fixtureView.getItems().add(FixtureItem.match(e.getKey(), m, managedTeam));
+            }
+        }
+        // Auto-scroll to next-match section
+        IMatch next = currentLeague.getNextMatchForManaged();
+        if (next != null) {
+            int targetRound = currentLeague.getRoundOf(next);
+            int idx = 0;
+            for (int i = 0; i < fixtureView.getItems().size(); i++) {
+                FixtureItem it = fixtureView.getItems().get(i);
+                if (it.isHeader && it.round == targetRound) { idx = i; break; }
+            }
+            int finalIdx = idx;
+            javafx.application.Platform.runLater(() -> fixtureView.scrollTo(finalIdx));
         }
     }
 
@@ -360,8 +508,13 @@ public class MainApp extends Application {
     private void updateNextMatch() {
         IMatch next = currentLeague.getNextMatchForManaged();
         if (next == null) {
-            nextMatchLabel.setText("✓ Sezon tamamlandı — yönettiğiniz takımın oynayacağı maç kalmadı.");
-            playMatchBtn.setDisable(true);
+            // Şampiyonu öğren
+            ITeam champion = currentLeague.getStandings().isEmpty() ? null : currentLeague.getStandings().get(0);
+            String champText = (champion != null) ? "  ·  Şampiyon: " + champion.getName() : "";
+            nextMatchLabel.setText("✓ Sezon tamamlandı!" + champText);
+            playMatchBtn.setText("🔄 Tekrar Oyna (Yeni Sezon)");
+            playMatchBtn.setDisable(false);
+            playMatchBtn.setOnAction(e -> startNewSeason());
         } else {
             int round = currentLeague.getRoundOf(next);
             String home = next.getHomeTeam().getName();
@@ -370,8 +523,23 @@ public class MainApp extends Application {
                               (next.getAwayTeam() == managedTeam ? "  (DEPLASMAN)" : "");
             nextMatchLabel.setText("Sıradaki Maç (Hafta " + round + "):  "
                     + home + "  vs  " + away + homeAway);
+            playMatchBtn.setText("▶ Maç Önizleme");
             playMatchBtn.setDisable(false);
+            playMatchBtn.setOnAction(e -> {
+                IMatch n = currentLeague.getNextMatchForManaged();
+                if (n != null) openPreMatchPreview(n);
+            });
         }
+    }
+
+    private void startNewSeason() {
+        ISportFactory f = currentFactory;
+        String sn = currentSportName;
+        if (f == null) {
+            f = isFootballSport ? new FootballFactory() : new VolleyballFactory();
+            sn = isFootballSport ? "Futbol" : "Voleybol";
+        }
+        openTeamSelect(f, sn);
     }
 
     private VBox card(String title, Node body) {
@@ -430,21 +598,24 @@ public class MainApp extends Application {
 
         Label vsLine = new Label(h.getName() + (h == managedTeam ? " ★" : "")
                 + "    vs    " + a.getName() + (a == managedTeam ? " ★" : ""));
-        vsLine.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: white;"
+        vsLine.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: white;"
                 + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 6, 0, 1, 1);");
 
-        String advText = isFootballSport ? "Ev sahibi avantajı: +8 güç" : "Ev sahibi avantajı: +4 güç";
-        Label adv = new Label("⌂ " + h.getName() + " ev sahibi  ·  " + advText);
-        adv.setStyle("-fx-font-size: 13px; -fx-text-fill: #ecf0f1;");
+        Label hostLine = new Label("⌂ " + h.getName() + " ev sahibi");
+        hostLine.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #f1c40f;");
+        Label stadLine = new Label("🏟 Stad: " + Squads.stadium(h.getName()));
+        stadLine.setStyle("-fx-font-size: 13px; -fx-text-fill: #ecf0f1;");
+        VBox hostBox = new VBox(2, hostLine, stadLine);
+        hostBox.setAlignment(Pos.CENTER);
 
         Pane pitch = isFootballSport
-                ? FormationView.footballPitch(620, 320, h, a,
+                ? FormationView.footballPitch(700, 360, h, a,
                         currentMatch.getOnField(h), currentMatch.getOnField(a))
-                : FormationView.volleyballCourtView(620, 320, h, a,
+                : FormationView.volleyballCourtView(700, 360, h, a,
                         currentMatch.getOnField(h), currentMatch.getOnField(a));
 
-        VBox homeRoster = buildRosterColumn(h, currentMatch.getOnField(h), currentMatch.getBench(h));
-        VBox awayRoster = buildRosterColumn(a, currentMatch.getOnField(a), currentMatch.getBench(a));
+        VBox homeRoster = buildPreviewRoster(h, currentMatch.getOnField(h), currentMatch.getBench(h));
+        VBox awayRoster = buildPreviewRoster(a, currentMatch.getOnField(a), currentMatch.getBench(a));
         HBox rosters = new HBox(14, homeRoster, awayRoster);
         HBox.setHgrow(homeRoster, Priority.ALWAYS);
         HBox.setHgrow(awayRoster, Priority.ALWAYS);
@@ -459,36 +630,50 @@ public class MainApp extends Application {
         HBox actions = new HBox(14, back, startBtn);
         actions.setAlignment(Pos.CENTER);
 
-        VBox content = new VBox(14, title, vsLine, adv, pitch, rosters, actions);
+        VBox content = new VBox(10, title, vsLine, hostBox, pitch, rosters, actions);
         content.setAlignment(Pos.CENTER);
-        content.setPadding(new Insets(20));
-        content.setMaxWidth(1000);
+        content.setPadding(new Insets(16));
+        content.setMaxWidth(1040);
         content.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 14;");
 
-        StackPane wrap = new StackPane(content);
-        wrap.setPadding(new Insets(20));
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        StackPane wrap = new StackPane(scroll);
+        wrap.setPadding(new Insets(16));
         root.getChildren().addAll(field, wrap);
         return new Scene(root, 1100, 740);
     }
 
-    private VBox buildRosterColumn(ITeam team, List<IPlayer> onField, List<IPlayer> bench) {
-        Label header = new Label(team.getName() + "  ·  İlk 11" + (isFootballSport ? "" : " (6)"));
-        header.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
+    private VBox buildPreviewRoster(ITeam team, List<IPlayer> onField, List<IPlayer> bench) {
+        Label header = new Label(team.getName());
+        header.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: white;");
+
+        Label firstXIHeader = makeSquadHeader(isFootballSport ? "İlk 11" : "İlk 6", "#16a085");
         ListView<IPlayer> field = new ListView<>();
         field.getItems().setAll(onField);
         field.setCellFactory(lv -> new PlayerCell());
-        field.setPrefHeight(180);
-        field.setStyle("-fx-control-inner-background: rgba(220,255,220,0.95); -fx-background-radius: 8;");
+        field.setPrefHeight(280);
+        field.setStyle("-fx-control-inner-background: rgba(220,255,220,0.95); -fx-background-radius: 8;"
+                + " -fx-font-size: 13px;");
 
-        Label benchHeader = new Label("Yedekler");
-        benchHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 6 0 0 0;");
+        Label benchHeader = makeSquadHeader("Yedekler", "#7f8c8d");
         ListView<IPlayer> benchView = new ListView<>();
         benchView.getItems().setAll(bench);
         benchView.setCellFactory(lv -> new PlayerCell());
-        benchView.setPrefHeight(120);
-        benchView.setStyle("-fx-control-inner-background: rgba(245,245,245,0.95); -fx-background-radius: 8;");
+        benchView.setPrefHeight(180);
+        benchView.setStyle("-fx-control-inner-background: rgba(245,245,245,0.95); -fx-background-radius: 8;"
+                + " -fx-font-size: 13px;");
 
-        return new VBox(4, header, field, benchHeader, benchView);
+        return new VBox(4, header, firstXIHeader, field, benchHeader, benchView);
+    }
+
+    private Label makeSquadHeader(String text, String color) {
+        Label l = new Label(text);
+        l.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: white;"
+                + " -fx-background-color: " + color + ";"
+                + " -fx-padding: 5 14; -fx-background-radius: 6;");
+        return l;
     }
 
     // ============== CANLI MAÇ EKRANI ==============
@@ -497,6 +682,13 @@ public class MainApp extends Application {
         if (currentMatch == null) return;
         primaryStage.setScene(buildMatchViewScene());
         refreshMatchView();
+        // Otomatik 1x'den başlat
+        if (speedGroup != null) {
+            for (Toggle t : speedGroup.getToggles()) {
+                if ((Integer) t.getUserData() == 1) { t.setSelected(true); break; }
+            }
+        }
+        applySpeed(1);
     }
 
     private Scene buildMatchViewScene() {
@@ -520,39 +712,79 @@ public class MainApp extends Application {
         Button leave = secondaryButton("⬅ Maçtan Çık", "#7f8c8d");
         leave.setOnAction(e -> confirmLeaveMatch());
 
+        Region spacer1 = new Region(); HBox.setHgrow(spacer1, Priority.ALWAYS);
+        Region spacer2 = new Region(); HBox.setHgrow(spacer2, Priority.ALWAYS);
+
+        // SCOREBOARD
         ITeam h = currentMatch.getHomeTeam();
         ITeam a = currentMatch.getAwayTeam();
-        Label title = new Label(h.getName() + (h == managedTeam ? " ★" : "")
-                + "    vs    " + a.getName() + (a == managedTeam ? " ★" : ""));
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 6, 0, 1, 1);");
-
-        matchScoreLabel = new Label("0 - 0");
-        matchScoreLabel.setStyle("-fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: white;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 6, 0, 1, 1);");
+        matchHomeAbbrLabel = new Label(abbr(h.getName()) + (h == managedTeam ? " ★" : ""));
+        matchHomeAbbrLabel.setStyle(scoreTeamStyle());
+        matchHomeScoreLabel = new Label("0");
+        matchHomeScoreLabel.setStyle(scoreDigitStyle());
+        Label sep = new Label("–"); sep.setStyle(scoreSepStyle());
+        matchAwayScoreLabel = new Label("0");
+        matchAwayScoreLabel.setStyle(scoreDigitStyle());
+        matchAwayAbbrLabel = new Label(abbr(a.getName()) + (a == managedTeam ? " ★" : ""));
+        matchAwayAbbrLabel.setStyle(scoreTeamStyle());
 
         matchClockLabel = new Label("0'");
-        matchClockLabel.setStyle("-fx-font-size: 18px; -fx-text-fill: #ecf0f1;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 4, 0, 1, 1);");
+        matchClockLabel.setStyle("-fx-font-family: 'Consolas','Courier New',monospace;"
+                + " -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #f1c40f;"
+                + " -fx-padding: 6 14;");
 
-        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox topRow = new HBox(12, leave, spacer, matchClockLabel);
-        topRow.setAlignment(Pos.CENTER_LEFT);
+        HBox scoreboardInner = new HBox(14, matchHomeAbbrLabel, matchHomeScoreLabel, sep, matchAwayScoreLabel, matchAwayAbbrLabel);
+        scoreboardInner.setAlignment(Pos.CENTER);
+        scoreboardInner.setPadding(new Insets(8, 22, 8, 22));
+        scoreboardInner.setStyle("-fx-background-color: linear-gradient(to bottom, #111111, #2c2c2c);"
+                + " -fx-background-radius: 14; -fx-border-color: #f1c40f; -fx-border-width: 2;"
+                + " -fx-border-radius: 14;");
 
-        VBox v = new VBox(2, topRow, title, matchScoreLabel);
-        v.setAlignment(Pos.CENTER);
+        HBox scoreboard = new HBox(8, scoreboardInner, matchClockLabel);
+        scoreboard.setAlignment(Pos.CENTER);
+        scoreboard.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16;"
+                + " -fx-padding: 6;");
+
+        HBox topRow = new HBox(12, leave, spacer1, scoreboard, spacer2);
+        topRow.setAlignment(Pos.CENTER);
+        VBox v = new VBox(topRow);
         v.setPadding(new Insets(2, 4, 8, 4));
         return v;
     }
 
+    private String scoreDigitStyle() {
+        return "-fx-font-family: 'Consolas','Courier New',monospace; -fx-font-size: 48px;"
+                + " -fx-font-weight: bold; -fx-text-fill: #ffd54f;";
+    }
+    private String scoreTeamStyle() {
+        return "-fx-font-family: 'Consolas','Courier New',monospace; -fx-font-size: 24px;"
+                + " -fx-font-weight: bold; -fx-text-fill: #ecf0f1;";
+    }
+    private String scoreSepStyle() {
+        return "-fx-font-size: 34px; -fx-font-weight: bold; -fx-text-fill: #95a5a6;";
+    }
+
+    private String abbr(String name) {
+        if (name == null) return "?";
+        // Take first 3 uppercase letters of first word, plus first letter of next word if any
+        String[] parts = name.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        if (parts.length > 0) {
+            String w = parts[0];
+            sb.append(w.substring(0, Math.min(3, w.length())).toUpperCase());
+        }
+        if (parts.length > 1 && sb.length() < 5) {
+            sb.append(parts[1].substring(0, 1).toUpperCase());
+        }
+        return sb.toString();
+    }
+
     private HBox buildMatchCenter() {
-        // Olaylar
         eventsView = new ListView<>();
         eventsView.setStyle("-fx-control-inner-background: rgba(255,255,255,0.95); -fx-background-radius: 10;");
         eventsView.setCellFactory(lv -> new EventCell());
         VBox eventsCard = card("📜 Maç Olayları", eventsView);
 
-        // Tab paneli (sağ)
         TabPane tabs = new TabPane();
         tabs.setStyle("-fx-tab-min-width: 110px;");
 
@@ -560,14 +792,15 @@ public class MainApp extends Application {
         ourOnFieldView.setStyle("-fx-control-inner-background: rgba(220,255,220,0.95); -fx-background-radius: 8;");
         ourBenchView = new ListView<>(); ourBenchView.setCellFactory(lv -> new PlayerCell());
         ourBenchView.setStyle("-fx-control-inner-background: rgba(245,245,245,0.95); -fx-background-radius: 8;");
-        VBox ourBox = squadBox("Sahada", ourOnFieldView, "Yedekler", ourBenchView);
+        VBox ourBox = squadBox(isFootballSport ? "İlk 11" : "İlk 6", ourOnFieldView, "Yedekler", ourBenchView);
         Tab ourTab = new Tab("Bizim Kadro", ourBox); ourTab.setClosable(false);
 
         oppOnFieldView = new ListView<>(); oppOnFieldView.setCellFactory(lv -> new PlayerCell());
         oppOnFieldView.setStyle("-fx-control-inner-background: rgba(220,230,255,0.95); -fx-background-radius: 8;");
         oppBenchView = new ListView<>(); oppBenchView.setCellFactory(lv -> new PlayerCell());
         oppBenchView.setStyle("-fx-control-inner-background: rgba(245,245,245,0.95); -fx-background-radius: 8;");
-        VBox oppBox = squadBox("Sahada (rakip)", oppOnFieldView, "Yedekler (rakip)", oppBenchView);
+        VBox oppBox = squadBox(isFootballSport ? "İlk 11 (rakip)" : "İlk 6 (rakip)", oppOnFieldView,
+                "Yedekler (rakip)", oppBenchView);
         Tab oppTab = new Tab("Rakip Kadro", oppBox); oppTab.setClosable(false);
 
         formationHolder = new StackPane();
@@ -585,23 +818,21 @@ public class MainApp extends Application {
     }
 
     private VBox squadBox(String t1, ListView<IPlayer> v1, String t2, ListView<IPlayer> v2) {
-        Label l1 = new Label(t1); l1.setStyle("-fx-font-weight: bold; -fx-padding: 2 0 2 4;");
-        Label l2 = new Label(t2); l2.setStyle("-fx-font-weight: bold; -fx-padding: 6 0 2 4;");
-        VBox v = new VBox(2, l1, v1, l2, v2);
+        Label l1 = makeSquadHeader(t1, "#16a085");
+        Label l2 = makeSquadHeader(t2, "#7f8c8d");
+        VBox v = new VBox(4, l1, v1, l2, v2);
         VBox.setVgrow(v1, Priority.ALWAYS);
         VBox.setVgrow(v2, Priority.ALWAYS);
         return v;
     }
 
     private VBox buildMatchBottomBar() {
-        // Hız kontrolleri
         speedGroup = new ToggleGroup();
         ToggleButton pause = speedToggle("⏸", -1);
         ToggleButton x1 = speedToggle("▶ 1x", 1);
         ToggleButton x2 = speedToggle("▶▶ 2x", 2);
         ToggleButton x4 = speedToggle("▶▶▶ 4x", 4);
         ToggleButton x8 = speedToggle("▶▶▶▶ 8x", 8);
-        pause.setSelected(true);
         HBox speedBar = new HBox(4, pause, x1, x2, x4, x8);
 
         quickFinishBtn = new Button("⏭ Hızlı Bitir");
@@ -609,10 +840,18 @@ public class MainApp extends Application {
                 + " -fx-text-fill: white; -fx-padding: 8 16; -fx-cursor: hand; -fx-background-radius: 12;");
         quickFinishBtn.setOnAction(e -> doQuickFinish());
 
+        // SUBS BADGE (yanına yapışık)
+        subsBadge = new Label();
+        subsBadge.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: white;"
+                + " -fx-background-color: #d35400; -fx-padding: 6 12; -fx-background-radius: 10;");
+
         substituteBtn = new Button("🔁 Oyuncu Değişikliği");
         substituteBtn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-color: #d35400;"
                 + " -fx-text-fill: white; -fx-padding: 8 16; -fx-cursor: hand; -fx-background-radius: 12;");
         substituteBtn.setOnAction(e -> openSubDialog(false));
+
+        HBox subsCluster = new HBox(6, subsBadge, substituteBtn);
+        subsCluster.setAlignment(Pos.CENTER_LEFT);
 
         continueBtn = new Button("✓ Devam (Panele Dön)");
         continueBtn.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: #27ae60;"
@@ -620,12 +859,8 @@ public class MainApp extends Application {
         continueBtn.setOnAction(e -> finishAndReturn());
         continueBtn.setVisible(false);
 
-        subsRemainingLabel = new Label();
-        subsRemainingLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: white;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 4, 0, 1, 1);");
-
         Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox row = new HBox(8, speedBar, quickFinishBtn, substituteBtn, spacer, subsRemainingLabel, continueBtn);
+        HBox row = new HBox(10, speedBar, quickFinishBtn, spacer, subsCluster, continueBtn);
         row.setAlignment(Pos.CENTER_LEFT);
         VBox v = new VBox(row);
         v.setPadding(new Insets(8, 4, 4, 4));
@@ -639,7 +874,7 @@ public class MainApp extends Application {
         tb.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-color: rgba(255,255,255,0.85);"
                 + " -fx-text-fill: #2c3e50; -fx-padding: 8 12; -fx-cursor: hand;");
         tb.setOnAction(e -> {
-            if (!tb.isSelected()) { tb.setSelected(true); return; } // can't deselect to none
+            if (!tb.isSelected()) { tb.setSelected(true); return; }
             applySpeed(rate);
         });
         return tb;
@@ -680,13 +915,30 @@ public class MainApp extends Application {
         refreshMatchView();
         if (currentMatch.needsSubstitution(managedTeam)) {
             matchTimeline.pause();
-            selectPauseSpeed();
-            openSubDialog(true);
+            // Defer to next FX pulse so showAndWait runs cleanly outside the timeline handler
+            Platform.runLater(() -> {
+                openSubDialog(true);
+                // Modal kapandıktan sonra: değişiklik yapıldıysa veya kullanıcı geçtiyse timeline 1x'te devam etsin
+                if (currentMatch != null
+                        && !currentMatch.isFinished()
+                        && !currentMatch.needsSubstitution(managedTeam)) {
+                    selectSpeed(1);
+                    applySpeed(1);
+                }
+            });
+            return;
         }
         if (currentMatch.isFinished()) {
             matchTimeline.pause();
             selectPauseSpeed();
             onMatchFinished();
+        }
+    }
+
+    private void selectSpeed(int rate) {
+        if (speedGroup == null) return;
+        for (Toggle t : speedGroup.getToggles()) {
+            if ((Integer) t.getUserData() == rate) { t.setSelected(true); break; }
         }
     }
 
@@ -717,7 +969,7 @@ public class MainApp extends Application {
         if (substituteBtn != null) substituteBtn.setDisable(true);
         if (quickFinishBtn != null) quickFinishBtn.setDisable(true);
         if (speedGroup != null) {
-            for (javafx.scene.control.Toggle t : speedGroup.getToggles()) {
+            for (Toggle t : speedGroup.getToggles()) {
                 if ((Integer) t.getUserData() > 0) ((ToggleButton) t).setDisable(true);
             }
         }
@@ -753,7 +1005,8 @@ public class MainApp extends Application {
     private void refreshMatchView() {
         if (currentMatch == null) return;
         matchClockLabel.setText(currentMatch.getClockDisplay());
-        matchScoreLabel.setText(currentMatch.getHomeScore() + " - " + currentMatch.getAwayScore());
+        matchHomeScoreLabel.setText(String.valueOf(currentMatch.getHomeScore()));
+        matchAwayScoreLabel.setText(String.valueOf(currentMatch.getAwayScore()));
 
         eventsView.getItems().setAll(currentMatch.getEvents());
         if (!eventsView.getItems().isEmpty()) eventsView.scrollTo(eventsView.getItems().size() - 1);
@@ -765,13 +1018,12 @@ public class MainApp extends Application {
         oppOnFieldView.getItems().setAll(currentMatch.getOnField(opp));
         oppBenchView.getItems().setAll(currentMatch.getBench(opp));
 
-        // Diziliş
         Pane pitch = isFootballSport
-                ? FormationView.footballPitch(440, 280,
+                ? FormationView.footballPitch(560, 360,
                         currentMatch.getHomeTeam(), currentMatch.getAwayTeam(),
                         currentMatch.getOnField(currentMatch.getHomeTeam()),
                         currentMatch.getOnField(currentMatch.getAwayTeam()))
-                : FormationView.volleyballCourtView(440, 280,
+                : FormationView.volleyballCourtView(560, 360,
                         currentMatch.getHomeTeam(), currentMatch.getAwayTeam(),
                         currentMatch.getOnField(currentMatch.getHomeTeam()),
                         currentMatch.getOnField(currentMatch.getAwayTeam()));
@@ -779,7 +1031,11 @@ public class MainApp extends Application {
 
         int remaining = currentMatch.getRemainingSubs(managedTeam);
         int max = currentMatch.getMaxSubs();
-        subsRemainingLabel.setText("Kalan değişiklik: " + remaining + "/" + max);
+        subsBadge.setText("🔁 Değişiklik " + remaining + "/" + max);
+        // badge rengini duruma göre değiştir
+        String bg = remaining == 0 ? "#7f8c8d" : (remaining == 1 ? "#c0392b" : (remaining == 2 ? "#d35400" : "#27ae60"));
+        subsBadge.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: white;"
+                + " -fx-background-color: " + bg + "; -fx-padding: 6 12; -fx-background-radius: 10;");
         substituteBtn.setDisable(remaining <= 0
                 || currentMatch.getOnField(managedTeam).isEmpty()
                 || currentMatch.getBench(managedTeam).isEmpty()
@@ -798,23 +1054,35 @@ public class MainApp extends Application {
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.setTitle(forced ? "Zorunlu Değişiklik" : "Oyuncu Değişikliği");
 
-        Label title = new Label(forced
-                ? "Bir oyuncu sakatlandı veya atıldı. Yerine kim girsin?"
-                : "Çıkacak ve girecek oyuncuyu seçin.");
-        title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+        IPlayer injured = forced ? currentMatch.getLastForceRemoved(managedTeam) : null;
+        String forcedText = (injured != null)
+                ? "⚕ " + injured.getName() + " (" + injured.getPosition() + ", " + injured.getSkillLevel()
+                  + ") sahadan çıktı. Yerine kim girsin?"
+                : "Bir oyuncu çıktı. Yerine kim girsin?";
+        Label title = new Label(forced ? forcedText : "Çıkacak ve girecek oyuncuyu seçin.");
+        title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;"
+                + (forced ? " -fx-text-fill: #7a1f9a;" : ""));
+
+        int remaining = currentMatch.getRemainingSubs(managedTeam);
+        int max = currentMatch.getMaxSubs();
+        Label badge = new Label("Kalan değişiklik: " + remaining + "/" + max);
+        badge.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: white;"
+                + " -fx-background-color: #d35400; -fx-padding: 6 14; -fx-background-radius: 10;");
 
         ListView<IPlayer> outList = new ListView<>();
         outList.getItems().setAll(field);
         outList.setCellFactory(lv -> new PlayerCell());
-        outList.setPrefHeight(260);
+        outList.setPrefHeight(280);
 
         ListView<IPlayer> inList = new ListView<>();
         inList.getItems().setAll(bench);
         inList.setCellFactory(lv -> new PlayerCell());
-        inList.setPrefHeight(260);
+        inList.setPrefHeight(280);
 
-        Label outHeader = new Label("Çıkacak (sahadan)"); outHeader.setStyle("-fx-font-weight: bold;");
-        Label inHeader = new Label("Girecek (yedekten)"); inHeader.setStyle("-fx-font-weight: bold;");
+        Label outHeader = new Label(isFootballSport ? "İlk 11" : "İlk 6");
+        outHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        Label inHeader = new Label("Yedekler");
+        inHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
         VBox outBox = new VBox(4, outHeader, outList);
         VBox inBox = new VBox(4, inHeader, inList);
         if (forced) { outBox.setVisible(false); outBox.setManaged(false); }
@@ -838,9 +1106,9 @@ public class MainApp extends Application {
         HBox actions = new HBox(10, cancel, apply);
         actions.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox layout = new VBox(12, title, lists, actions);
+        VBox layout = new VBox(12, title, badge, lists, actions);
         layout.setPadding(new Insets(16));
-        dialog.setScene(new Scene(layout, 660, 420));
+        dialog.setScene(new Scene(layout, 700, 460));
         dialog.showAndWait();
     }
 
@@ -861,19 +1129,14 @@ public class MainApp extends Application {
         return SAVE_DIR + File.separator + prefix + "_slot" + slot + ".dat";
     }
 
-    private String slotLabel(int slot, boolean football) {
-        File f = new File(slotPathForSport(slot, football));
+    private String slotLabel(int slot) {
+        File f = new File(slotPath(slot));
         if (!f.exists()) return "Slot " + slot + "  —  boş";
-        DataManager.SaveMeta m = DataManager.loadMeta(slotPathForSport(slot, football));
+        DataManager.SaveMeta m = DataManager.loadMeta(slotPath(slot));
         String name = (m != null && m.name != null && !m.name.isBlank()) ? m.name : "(adsız)";
         long ts = (m != null && m.timestamp > 0) ? m.timestamp : f.lastModified();
         String when = new SimpleDateFormat("dd.MM.yyyy HH:mm").format(new Date(ts));
-        String managed = (m != null && m.managedTeam != null && !m.managedTeam.isBlank())
-                ? "  ·  " + m.managedTeam : "";
-        String played = (m != null && m.matchesTotal > 0)
-                ? "  ·  " + m.matchesPlayed + "/" + m.matchesTotal + " maç" : "";
-        String sport = football ? "[Futbol]" : "[Voleybol]";
-        return "Slot " + slot + " " + sport + "  —  " + name + "  ·  " + when + managed + played;
+        return "Slot " + slot + "  —  " + name + "  ·  " + when;
     }
 
     private void openSaveDialog() {
@@ -896,28 +1159,7 @@ public class MainApp extends Application {
         }
     }
 
-    private void openLoadDialog() {
-        LoadSelection sel = chooseSlotForLoad();
-        if (sel == null) return;
-        try {
-            ILeague loaded = DataManager.loadGame(slotPathForSport(sel.slot, sel.football));
-            currentLeague = loaded;
-            isFootballSport = sel.football;
-            managedTeam = currentLeague.getManagedTeam();
-            if (managedTeam == null && !currentLeague.getTeams().isEmpty()) {
-                managedTeam = currentLeague.getTeams().get(0);
-                currentLeague.setManagedTeam(managedTeam);
-            }
-            primaryStage.setScene(buildDashboardScene());
-            setStatus("✓ Slot " + sel.slot + " yüklendi.");
-        } catch (Exception ex) {
-            Alert a = new Alert(Alert.AlertType.ERROR, "Yükleme hatası: " + ex.getMessage(), ButtonType.OK);
-            a.showAndWait();
-        }
-    }
-
     private static class SaveSelection { int slot; String name; }
-    private static class LoadSelection { int slot; boolean football; }
 
     private SaveSelection chooseSlotForSave() {
         final SaveSelection[] result = { null };
@@ -933,7 +1175,7 @@ public class MainApp extends Application {
         VBox slotsBox = new VBox(8);
         slotsBox.setPadding(new Insets(8, 4, 8, 4));
         for (int i = 1; i <= SLOT_COUNT; i++) {
-            RadioButton rb = new RadioButton(slotLabel(i, isFootballSport));
+            javafx.scene.control.RadioButton rb = new javafx.scene.control.RadioButton(slotLabel(i));
             rb.setUserData(i);
             rb.setToggleGroup(group);
             rb.setStyle("-fx-font-size: 13px;");
@@ -944,16 +1186,14 @@ public class MainApp extends Application {
         Label nameLabel = new Label("Kayıt Adı:");
         TextField nameField = new TextField();
         nameField.setPromptText("örn. Şampiyonluk Kovalama");
-        // Pre-fill with existing name if any
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT != null) {
                 int s = (Integer) newT.getUserData();
-                DataManager.SaveMeta m = DataManager.loadMeta(slotPathForSport(s, isFootballSport));
+                DataManager.SaveMeta m = DataManager.loadMeta(slotPath(s));
                 nameField.setText(m == null || m.name == null ? "" : m.name);
             }
         });
-        // initial
-        DataManager.SaveMeta initial = DataManager.loadMeta(slotPathForSport(1, isFootballSport));
+        DataManager.SaveMeta initial = DataManager.loadMeta(slotPath(1));
         if (initial != null && initial.name != null) nameField.setText(initial.name);
 
         Button cancel = new Button("İptal");
@@ -980,104 +1220,58 @@ public class MainApp extends Application {
         return result[0];
     }
 
-    private LoadSelection chooseSlotForLoad() {
-        final LoadSelection[] result = { null };
-        Stage dialog = new Stage();
-        dialog.initOwner(primaryStage);
-        dialog.initModality(Modality.APPLICATION_MODAL);
-        dialog.setTitle("Kayıt Yükle");
-
-        Label header = new Label("Yüklenecek Kayıt");
-        header.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
-
-        ToggleGroup group = new ToggleGroup();
-        VBox slotsBox = new VBox(8);
-        slotsBox.setPadding(new Insets(8, 4, 8, 4));
-
-        RadioButton firstEnabled = null;
-        // Show slots from BOTH sports
-        for (boolean foot : new boolean[]{true, false}) {
-            for (int i = 1; i <= SLOT_COUNT; i++) {
-                File f = new File(slotPathForSport(i, foot));
-                RadioButton rb = new RadioButton(slotLabel(i, foot));
-                rb.setUserData(new int[]{ i, foot ? 1 : 0 });
-                rb.setToggleGroup(group);
-                rb.setStyle("-fx-font-size: 12px;");
-                if (!f.exists()) rb.setDisable(true);
-                else if (firstEnabled == null) firstEnabled = rb;
-                slotsBox.getChildren().add(rb);
-            }
-        }
-        if (firstEnabled != null) firstEnabled.setSelected(true);
-
-        Button cancel = new Button("İptal");
-        cancel.setOnAction(e -> dialog.close());
-        Button ok = new Button("Yükle");
-        ok.setDefaultButton(true);
-        ok.setStyle("-fx-font-weight: bold;");
-        ok.setDisable(firstEnabled == null);
-        ok.setOnAction(e -> {
-            if (group.getSelectedToggle() != null) {
-                int[] data = (int[]) group.getSelectedToggle().getUserData();
-                LoadSelection ls = new LoadSelection();
-                ls.slot = data[0]; ls.football = (data[1] == 1);
-                result[0] = ls;
-            }
-            dialog.close();
-        });
-
-        HBox actions = new HBox(10, cancel, ok);
-        actions.setAlignment(Pos.CENTER_RIGHT);
-        VBox layout = new VBox(10, header, slotsBox, actions);
-        layout.setPadding(new Insets(16));
-        dialog.setScene(new Scene(layout, 540, 380));
-        dialog.showAndWait();
-        return result[0];
-    }
-
     // ============== HÜCRELER ==============
 
-    private static class MatchRow {
-        final int round; final IMatch match; final ITeam managedTeam;
-        MatchRow(int round, IMatch match, ITeam managed) {
-            this.round = round; this.match = match; this.managedTeam = managed;
+    private static class FixtureItem {
+        final int round;
+        final IMatch match;
+        final boolean isHeader;
+        final ITeam managed;
+        private FixtureItem(int round, IMatch match, boolean header, ITeam managed) {
+            this.round = round; this.match = match; this.isHeader = header; this.managed = managed;
         }
+        static FixtureItem header(int round) { return new FixtureItem(round, null, true, null); }
+        static FixtureItem match(int round, IMatch m, ITeam managed) { return new FixtureItem(round, m, false, managed); }
     }
 
-    private static class MatchCell extends ListCell<MatchRow> {
+    private static class FixtureCell extends ListCell<FixtureItem> {
         @Override
-        protected void updateItem(MatchRow row, boolean empty) {
-            super.updateItem(row, empty);
-            if (empty || row == null) { setGraphic(null); setText(null); return; }
-            if (row.match == null) {
-                Label l = new Label("Henüz oynanmış maç yok.");
-                l.setStyle("-fx-text-fill: #555; -fx-font-style: italic;");
+        protected void updateItem(FixtureItem it, boolean empty) {
+            super.updateItem(it, empty);
+            if (empty || it == null) { setGraphic(null); setText(null); return; }
+            if (it.isHeader) {
+                Label l = new Label("═══  Hafta " + it.round + "  ═══");
+                l.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"
+                        + " -fx-padding: 4 0 2 0;");
                 setGraphic(l); setText(null); return;
             }
-            IMatch m = row.match;
-            ITeam home = m.getHomeTeam(); ITeam away = m.getAwayTeam(); ITeam winner = m.getWinner();
+            IMatch m = it.match;
+            ITeam home = m.getHomeTeam();
+            ITeam away = m.getAwayTeam();
+            ITeam winner = m.getWinner();
 
-            Text round = new Text(String.format("R%d  ", row.round));
-            round.setFill(Color.web("#7f8c8d"));
-            round.setFont(Font.font("Consolas", FontWeight.NORMAL, 13));
-
-            Text homeText = new Text(home.getName() + (home == row.managedTeam ? "★" : ""));
-            homeText.setFont(Font.font("System", winner == home ? FontWeight.BOLD : FontWeight.NORMAL, 14));
+            Text indent = new Text("    ");
+            Text homeText = new Text(home.getName() + (home == it.managed ? "★" : ""));
+            homeText.setFont(Font.font("System", winner == home ? FontWeight.BOLD : FontWeight.NORMAL, 13));
             homeText.setFill(winner == home ? Color.web("#1e6f30") : Color.web("#222"));
-
-            Text score = new Text("  " + m.getScore() + "  ");
-            score.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
-            score.setFill(Color.web("#111"));
-
-            Text awayText = new Text(away.getName() + (away == row.managedTeam ? "★" : ""));
-            awayText.setFont(Font.font("System", winner == away ? FontWeight.BOLD : FontWeight.NORMAL, 14));
+            Text middle;
+            if (m.isPlayed()) {
+                middle = new Text("  " + m.getScore() + "  ");
+                middle.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+                middle.setFill(Color.web("#111"));
+            } else {
+                middle = new Text("   vs   ");
+                middle.setFont(Font.font("Consolas", FontWeight.NORMAL, 12));
+                middle.setFill(Color.web("#888"));
+            }
+            Text awayText = new Text(away.getName() + (away == it.managed ? "★" : ""));
+            awayText.setFont(Font.font("System", winner == away ? FontWeight.BOLD : FontWeight.NORMAL, 13));
             awayText.setFill(winner == away ? Color.web("#1e6f30") : Color.web("#222"));
+            Text mark = new Text("  " + (m.isPlayed() ? (winner == null ? "=" : "✓") : "—"));
+            mark.setFont(Font.font("System", FontWeight.BOLD, 12));
+            mark.setFill(m.isPlayed() ? (winner == null ? Color.web("#888") : Color.web("#1e6f30")) : Color.web("#bbb"));
 
-            Text mark = new Text("  " + (winner == null ? "=" : "✓"));
-            mark.setFont(Font.font("System", FontWeight.BOLD, 13));
-            mark.setFill(winner == null ? Color.web("#888") : Color.web("#1e6f30"));
-
-            TextFlow flow = new TextFlow(round, homeText, score, awayText, mark);
+            TextFlow flow = new TextFlow(indent, homeText, middle, awayText, mark);
             setGraphic(flow); setText(null);
         }
     }
@@ -1116,11 +1310,23 @@ public class MainApp extends Application {
             if (p.isInjured()) sb.append("⚕ ");
             if (p.hasRedCard()) sb.append("🟥 ");
             else if (p.getYellowCards() > 0) sb.append(p.getYellowCards() == 2 ? "🟨🟨 " : "🟨 ");
+            if (p.getGoalsThisMatch() > 0) {
+                sb.append("⚽");
+                if (p.getGoalsThisMatch() > 1) sb.append(p.getGoalsThisMatch());
+                sb.append(" ");
+            }
+            if (p.getSubInClock() != null) {
+                sb.append("🔁").append(p.getSubInClock()).append(" ");
+            }
             sb.append(p.getName()).append("  (").append(p.getPosition()).append(", ").append(p.getSkillLevel()).append(")");
+            if (!p.getGoalMinutes().isEmpty()) {
+                sb.append("  ⚽ ").append(String.join(", ", p.getGoalMinutes()));
+            }
             Label l = new Label(sb.toString());
             l.setStyle("-fx-font-size: 13px;"
                     + (p.isInjured() ? " -fx-text-fill: #7a1f9a;" : "")
-                    + (p.hasRedCard() ? " -fx-text-fill: #9b2c2c; -fx-font-style: italic;" : ""));
+                    + (p.hasRedCard() ? " -fx-text-fill: #9b2c2c; -fx-font-style: italic;" : "")
+                    + (p.getSubInClock() != null ? " -fx-font-weight: bold;" : ""));
             setGraphic(l); setText(null);
         }
     }

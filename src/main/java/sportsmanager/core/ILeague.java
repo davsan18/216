@@ -7,4 +7,12 @@ public interface ILeague extends java.io.Serializable {
     void scheduleMatches();
     void playNextRound();
     List<ITeam> getStandings();
+    List<ITeam> getTeams();
+    List<IMatch> getScheduledMatches();
+
+    void setManagedTeam(ITeam team);
+    ITeam getManagedTeam();
+    IMatch getNextMatchForManaged();
+    int getRoundOf(IMatch match);
+    void autoFinishOtherMatchesInRound(IMatch reference);
 }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/eness/Masa�st�/Projects/IdeaProjects/SportsManager/**)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\eness\\\\Masaüstü\\\\Projects\\\\IdeaProjects\\\\SportsManager\\\\216\" -Directory)",
+      "Bash(Select-Object Name)"
+    ]
+  }
+}
